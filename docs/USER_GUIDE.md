@@ -28,9 +28,18 @@ The documents page is the central hub of the data room:
   Financials, Legal, IP, Team, Product, Fundraising, Compliance, Market).
 - **Upload** -- Click **Upload Document** (admin/company members only) to add
   new files. Supported: PDF, Word, Excel, images, and more (up to 100MB).
-- **Download** -- Click the **Download** link on any document row.
-- **Versioning** -- Each document tracks version history. Upload new versions
-  without losing previous ones.
+- **PDF preview** -- Open a document and select Open PDF to read it in a new tab. Use
+  the page controls and zoom selector; historical PDF versions have a **View** button.
+- **Download** -- Available only when your access permits downloading. View Only
+  hides download buttons throughout the document list and version history.
+- **Versioning** -- Admins and company members can use **Upload new version**
+  on the document page, optionally adding a change note. They can delete individual
+  versions; deleting the current version selects the latest remaining one. The
+  last version cannot be removed independently. Version numbers are never reused.
+- **Deletion** -- Admins and company members can delete documents from the list
+  or document page. Deleted documents and all their versions become inaccessible.
+  Admins can delete categories in **Admin → Categories** after removing active
+  documents and subcategories. Investors have no deletion controls or permission.
 
 ### Document categories
 
@@ -168,14 +177,16 @@ Manage portal users through **Admin > Users**:
 
 Access is controlled at two levels:
 
-1. **Role-based** -- Admins and company members see everything. Investors
-   see only what they're granted.
+1. **Role-based** -- Admins and company members can manage documents. With
+   `DD_INVESTOR_ACCESS=granted`, investors see only granted documents. The default
+   open mode also exposes ungranted documents, while explicit grants still
+   constrain access (including View Only and expiration).
 2. **Per-resource** -- Grant specific investors access to individual documents
    or entire categories with access levels:
-   - **View** -- Can see the document exists and read metadata.
+   - **View** -- Can read metadata and preview PDFs in the browser, without download controls.
    - **Download** -- Can download the file.
-   - **Upload** -- Can upload new versions.
-   - **Manage** -- Full control (includes all above).
+   - **Upload** -- Includes download access; uploading versions requires a staff role.
+   - **Manage** -- Includes the other access levels; deletion and version changes still require a staff role.
 
 Grants can have an **expiration date** for time-limited access.
 

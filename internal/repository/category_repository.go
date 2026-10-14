@@ -47,14 +47,14 @@ func (r *categoryRepository) Create(ctx context.Context, cat *domain.Category) e
 func (r *categoryRepository) GetByID(ctx context.Context, id string) (*domain.Category, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, name, slug, description, parent_id, sort_order, icon, created_at, updated_at
-		 FROM categories WHERE id = ?`, id)
+		 FROM categories WHERE id = ? AND id NOT IN (SELECT category_id FROM deleted_categories)`, id)
 	return r.scanCategory(row)
 }
 
 func (r *categoryRepository) GetBySlug(ctx context.Context, slug string) (*domain.Category, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, name, slug, description, parent_id, sort_order, icon, created_at, updated_at
-		 FROM categories WHERE slug = ?`, slug)
+		 FROM categories WHERE slug = ? AND id NOT IN (SELECT category_id FROM deleted_categories)`, slug)
 	return r.scanCategory(row)
 }
 
@@ -64,7 +64,7 @@ func (r *categoryRepository) List(ctx context.Context) ([]*domain.Category, erro
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT c.id, c.name, c.slug, c.description, c.parent_id, c.sort_order, c.icon, c.created_at, c.updated_at,
 		        (SELECT COUNT(*) FROM documents d WHERE d.category_id = c.id AND d.is_archived = 0) AS document_count
-		 FROM categories c ORDER BY c.sort_order, c.name`)
+		 FROM categories c WHERE c.id NOT IN (SELECT category_id FROM deleted_categories) ORDER BY c.sort_order, c.name`)
 	if err != nil {
 		return nil, fmt.Errorf("list categories: %w", err)
 	}
@@ -131,14 +131,39 @@ func (r *categoryRepository) Update(ctx context.Context, cat *domain.Category) e
 	return nil
 }
 
+// Delete hides the category while retaining references held by archived documents.
+// The transaction prevents new active documents/children from racing deletion.
 func (r *categoryRepository) Delete(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx, `DELETE FROM categories WHERE id = ?`, id)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("delete category (id=%s): %w", id, err)
+		return fmt.Errorf("begin category deletion: %w", err)
 	}
-	rows, _ := result.RowsAffected()
-	if rows == 0 {
+	defer func() { _ = tx.Rollback() }()
+	var exists int
+	if err := tx.QueryRowContext(ctx, `SELECT 1 FROM categories WHERE id = ? AND id NOT IN (SELECT category_id FROM deleted_categories)`, id).Scan(&exists); err == sql.ErrNoRows {
 		return domain.ErrCategoryNotFound
+	} else if err != nil {
+		return fmt.Errorf("find category: %w", err)
+	}
+	var references int
+	if err := tx.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM documents WHERE category_id = ? AND is_archived = 0) + (SELECT COUNT(*) FROM categories WHERE parent_id = ? AND id NOT IN (SELECT category_id FROM deleted_categories))`, id, id).Scan(&references); err != nil {
+		return fmt.Errorf("check category contents: %w", err)
+	}
+	if references > 0 {
+		return domain.ErrCategoryNotEmpty
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO deleted_categories (category_id) VALUES (?)`, id); err != nil {
+		return fmt.Errorf("delete category: %w", err)
+	}
+	// Release the old slug for a replacement category.
+	if _, err := tx.ExecContext(ctx, `UPDATE categories SET slug = ? WHERE id = ?`, "deleted-"+id, id); err != nil {
+		return fmt.Errorf("release category slug: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM access_grants WHERE resource_type = 'category' AND resource_id = ?`, id); err != nil {
+		return fmt.Errorf("revoke category grants: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit category deletion: %w", err)
 	}
 	return nil
 }

@@ -146,9 +146,9 @@ per page dimension. The in-process PDF engine cannot be forcibly interrupted;
 a timed-out request stops waiting, but its worker remains occupied until the
 engine finishes. Do not increase input/worker limits without workload measurements.
 
-In the existing default `DD_INVESTOR_ACCESS=all` mode, investors have download
-access. Set `DD_INVESTOR_ACCESS=granted` and assign view grants for view-only
-access. Every binary route independently checks the current permission.
+In `DD_INVESTOR_ACCESS=all`, ungranted investors have download access, while
+explicit view-only grants restrict downloads. Use `DD_INVESTOR_ACCESS=granted`
+when access must always require a grant. Every binary route independently checks the current permission.
 
 After building the final image, run `scripts/testing/pdf-runtime.sh IMAGE` to
 check rasterized original text and watermark pixels as UID 1001 with a readonly

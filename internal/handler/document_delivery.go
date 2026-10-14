@@ -51,7 +51,7 @@ func (h *DocumentHandler) deliverySource(c echo.Context, level string) (*domain.
 	v, err := h.docRepo.GetVersionMetadata(c.Request().Context(), d.ID, n)
 	return d, v, err
 }
-func (h *DocumentHandler) recheck(c echo.Context, id, level string) error {
+func (h *DocumentHandler) recheck(c echo.Context, id, level string, version int) error {
 	d, err := h.docRepo.GetByID(c.Request().Context(), id)
 	if err != nil {
 		return err
@@ -63,7 +63,8 @@ func (h *DocumentHandler) recheck(c echo.Context, id, level string) error {
 	if !ok {
 		return domain.ErrDocumentNotFound
 	}
-	return nil
+	_, err = h.docRepo.GetVersionMetadata(c.Request().Context(), id, version)
+	return err
 }
 func deliveryError(c echo.Context, err error) error {
 	switch {
@@ -152,7 +153,7 @@ func (h *DocumentHandler) deliverFile(c echo.Context, inline bool) error {
 		}
 		data = loaded.FileData
 	}
-	if err = h.recheck(c, d.ID, domain.AccessDownload); err != nil {
+	if err = h.recheck(c, d.ID, domain.AccessDownload, v.VersionNumber); err != nil {
 		return deliveryError(c, err)
 	}
 	disposition := "attachment"
@@ -206,7 +207,7 @@ func (h *DocumentHandler) PreviewInfo(c echo.Context) error {
 		}
 		pages = info.Pages
 	}
-	if err = h.recheck(c, d.ID, domain.AccessView); err != nil {
+	if err = h.recheck(c, d.ID, domain.AccessView, v.VersionNumber); err != nil {
 		return deliveryError(c, err)
 	}
 	return response.OK(c, "PDF preview ready", map[string]any{"mode": mode, "version_number": v.VersionNumber, "pages": pages, "name": d.Name})
@@ -232,7 +233,7 @@ func (h *DocumentHandler) PreviewPage(c echo.Context) error {
 		return deliveryError(c, err)
 	}
 	defer image.Release()
-	if err = h.recheck(c, d.ID, domain.AccessView); err != nil {
+	if err = h.recheck(c, d.ID, domain.AccessView, v.VersionNumber); err != nil {
 		return deliveryError(c, err)
 	}
 	f, err := os.Open(image.Path)

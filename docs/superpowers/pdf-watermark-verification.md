@@ -44,3 +44,20 @@ pdfcpu font store; the plan checkboxes include some cases without committed
 automated regressions (huge dimensions, capped subprocess output, deletion after
 caching, grant loss between info and PDF fetch, cancelled raster-input lease).
 Those paths were reviewed, but inspection is not equivalent to test coverage.
+
+## Integration with current main before PR
+
+Merged `main` at `0ae6f3e` (document/version lifecycle and NDA fixes) while retaining
+its management operations. PDF byte routes now require download access; view-only
+users open server page images in the new tab. Explicit grants constrain access in
+open mode as introduced by main. Rechecking the version before delivery prevents
+sending a version deleted during preparation; the new regression failed with 200
+before the fix and passed with 404 afterwards.
+
+After integration: full Go tests and vet passed, PDF-service race checks passed,
+33 UI tests/typecheck/lint/build passed, six mocked browser scenarios passed, and
+the real browser document lifecycle test passed (upload new version, both preview
+modes, view-only restrictions, delete version/document/category). Investor test
+authentication is installed before the initial page load to avoid hydration races;
+list restrictions are asserted on the granted document's row rather than unrelated
+ungranted documents in open mode.

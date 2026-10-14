@@ -23,6 +23,12 @@ import (
 
 func setupDocumentTest(t *testing.T) (*echo.Echo, *service.AuthService, string) {
 	t.Helper()
+	e, auth, token, _ := setupDocumentTestDB(t)
+	return e, auth, token
+}
+
+func setupDocumentTestDB(t *testing.T) (*echo.Echo, *service.AuthService, string, *repository.DB) {
+	t.Helper()
 	db, err := repository.New(":memory:")
 	require.NoError(t, err)
 	require.NoError(t, db.Migrate())
@@ -53,7 +59,7 @@ func setupDocumentTest(t *testing.T) (*echo.Echo, *service.AuthService, string) 
 	result, err := authSvc.Login(context.Background(), "admin@test.com", "password123")
 	require.NoError(t, err)
 
-	return e, authSvc, result.AccessToken
+	return e, authSvc, result.AccessToken, db
 }
 
 func uploadDocument(t *testing.T, e *echo.Echo, token, catID string) string {

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Category } from '$types/api';
-	import { api } from '$api/client';
+	import { api, apiErrorMessage } from '$api/client';
 
 	let categories = $state<Category[]>([]);
 	let loading = $state(true);
@@ -9,17 +9,34 @@
 	let newSlug = $state('');
 	let newDescription = $state('');
 	let message = $state('');
+ let deleting = $state('');
 
 	async function loadCategories() {
 		loading = true;
 		try {
 			const res = await api.get<Category[]>('/categories');
-			categories = res.data ?? [];
+			categories = flatten(res.data ?? []);
 		} catch {
 			categories = [];
 		}
 		loading = false;
 	}
+
+ function flatten(tree: Category[], depth = 0): Category[] {
+  return tree.flatMap(cat => [{ ...cat, name: `${'— '.repeat(depth)}${cat.name}` }, ...flatten(cat.children ?? [], depth + 1)]);
+ }
+
+ async function deleteCategory(cat: Category) {
+  if (deleting || !confirm(`Delete category "${cat.name}"? Categories with documents or subcategories cannot be deleted.`)) return;
+  deleting = cat.id;
+  message = '';
+  try {
+   await api.delete(`/categories/${cat.id}`);
+   message = 'Category deleted.';
+   await loadCategories();
+  } catch (err) { message = apiErrorMessage(err, 'Failed to delete category.'); }
+  finally { deleting = ''; }
+ }
 
 	function autoSlug() {
 		newSlug = newName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -80,7 +97,7 @@
 				<th>Name</th>
 				<th>Slug</th>
 				<th>Description</th>
-				<th>Order</th>
+				<th>Order</th><th>Actions</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -90,6 +107,7 @@
 					<td class="mono">{cat.slug}</td>
 					<td class="desc">{cat.description ?? ''}</td>
 					<td>{cat.sort_order}</td>
+     <td><button class="btn-delete" onclick={() => deleteCategory(cat)} disabled={!!deleting || (cat.document_count ?? 0) > 0 || (cat.children?.length ?? 0) > 0} title="Delete documents and subcategories first">Delete category</button></td>
 				</tr>
 			{/each}
 		</tbody>
@@ -97,6 +115,8 @@
 {/if}
 
 <style>
+ .btn-delete { padding: 0.5rem; background: var(--dd-surface); color: var(--dd-error, #da1e28); border: 1px solid var(--dd-border); cursor: pointer; }
+ .btn-delete:disabled { opacity: 0.5; cursor: default; }
 	h1 { font-weight: 400; font-size: 1.5rem; margin-bottom: 1.5rem; }
 
 	.actions { margin-bottom: 1rem; }

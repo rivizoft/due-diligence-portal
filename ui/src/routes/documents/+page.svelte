@@ -2,6 +2,11 @@
 	import { onMount } from 'svelte';
 	import type { Category, Document } from '$types/api';
 	import { api, apiErrorMessage } from '$api/client';
+ import { authStore } from '$stores/authStore.svelte';
+ let canManage = $derived(authStore.isAdmin || authStore.isCompanyMember);
+ let deleting = $state('');
+ let actionError = $state('');
+ let downloading = $state<Record<string, boolean>>({});
 
 	const PAGE_SIZE = 50;
 
@@ -12,8 +17,6 @@
 	let searchMode = $state(false);
 	let loading = $state(true);
 	let loadError = $state('');
- let downloadError = $state('');
- let downloading = $state<Record<string, boolean>>({});
 	let page = $state(1);
 	let total = $state(0);
 
@@ -92,13 +95,29 @@
 		loading = false;
 	}
 
-
  async function downloadDoc(id: string, name: string) {
-  if (downloading[id]) return;
-  downloading[id] = true; downloadError = '';
+  if (downloading[id]) return; downloading[id] = true; actionError = '';
   try { await api.download(`/documents/${id}/download`, name); }
-  catch (err) { downloadError = apiErrorMessage(err, 'Download failed. Please try again.'); }
+  catch (err) { actionError = apiErrorMessage(err, 'Download failed. Use Download to retry.'); }
   finally { downloading[id] = false; }
+ }
+
+ async function deleteDoc(doc: Document) {
+  if (deleting || !canManage || !confirm(`Delete "${doc.name}" and remove access to all its versions?`)) return;
+  deleting = doc.id;
+  actionError = '';
+  try {
+   await api.delete(`/documents/${doc.id}`);
+   if (documents.length === 1 && page > 1) page--;
+   if (searchMode) await handleSearch(); else await loadDocuments();
+   await loadCategories();
+   if (selectedCategory && !categories.some(cat => cat.id === selectedCategory)) {
+    selectedCategory = '';
+    page = 1;
+    await loadDocuments();
+   }
+  } catch (err) { actionError = apiErrorMessage(err, 'Failed to delete document.'); }
+  finally { deleting = ''; }
  }
 
 	function formatSize(bytes: number): string {
@@ -120,10 +139,9 @@
 </script>
 
 <div class="page">
- {#if downloadError}<p role="alert">{downloadError} Use Download to retry.</p>{/if}
 	<header class="page-header">
 		<h1>Documents</h1>
-		<a href="/documents/upload" class="btn-primary">Upload Document</a>
+		{#if canManage}<a href="/documents/upload" class="btn-primary">Upload Document</a>{/if}
 	</header>
 
 	<div class="filters">
@@ -145,6 +163,7 @@
 		</select>
 	</div>
 
+ {#if actionError}<p role="alert">{actionError}</p>{/if}
 	{#if loading}
 		<div class="loading">Loading documents...</div>
 	{:else if loadError}
@@ -177,8 +196,10 @@
 						<td>v{doc.current_version}</td>
 						<td>{formatDate(doc.created_at)}</td>
 						<td>
-							{#if doc.mime_type === 'application/pdf'}<a class="btn-small" href="/documents/{doc.id}/preview" target="_blank" rel="noopener">Open PDF</a>{/if}
+							<a class="btn-small" href="/documents/{doc.id}">View</a>
+ {#if doc.mime_type === 'application/pdf'}<a class="btn-small" href="/documents/{doc.id}/preview" target="_blank" rel="noopener">Open PDF</a>{/if}
        {#if doc.can_download}<button class="btn-small" onclick={() => downloadDoc(doc.id, doc.name)} disabled={downloading[doc.id]} aria-busy={downloading[doc.id] ?? false}>{#if downloading[doc.id]}<span class="spinner" aria-hidden="true"></span>Preparing…{:else}Download{/if}</button>{/if}
+       {#if canManage}<button class="btn-small" onclick={() => deleteDoc(doc)} disabled={!!deleting}>Delete document</button>{/if}
 						</td>
 					</tr>
 				{/each}
@@ -195,9 +216,10 @@
 </div>
 
 <style>
- .spinner{display:inline-block;width:.75rem;height:.75rem;margin-right:.4rem;border:2px solid var(--dd-border);border-top-color:var(--dd-primary);border-radius:50%;animation:spin .8s linear infinite;}
- @keyframes spin{to{transform:rotate(360deg);}}
+ .spinner {display:inline-block;width:.75rem;height:.75rem;margin-right:.4rem;border:2px solid var(--dd-border);border-top-color:var(--dd-primary);border-radius:50%;animation:spin .8s linear infinite;}
+ @keyframes spin {to{transform:rotate(360deg);}}
  @media(prefers-reduced-motion:reduce){.spinner{animation:none;}}
+
 	.pagination {
 		display: flex;
 		align-items: center;

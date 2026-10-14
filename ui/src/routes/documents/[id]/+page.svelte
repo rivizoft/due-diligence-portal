@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Document, DocumentVersion } from '$types/api';
 	import { api, apiErrorMessage } from '$api/client';
+ import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 
 	let doc = $state<Document | null>(null);
@@ -9,6 +10,15 @@
 	let error = $state('');
 	let downloadError = $state('');
  let downloading = $state<Record<string, boolean>>({});
+ let canDownload = $state(false);
+ let canManage = $state(false);
+ let busy = $state(false);
+ let file = $state<File | null>(null);
+ let fileInput = $state<HTMLInputElement>();
+ let changeNote = $state('');
+ let actionError = $state('');
+ let selectedVersion = $state(0);
+ let previewVersion = $derived(versions.find(v => v.version_number === selectedVersion));
 
 	let docId = $derived(page.params.id ?? '');
 
@@ -16,9 +26,12 @@
 		loading = true;
 		error = '';
 		try {
-			const res = await api.get<{ document: Document; versions: DocumentVersion[] }>(`/documents/${id}`);
+			const res = await api.get<{ document: Document; versions: DocumentVersion[]; permissions: { can_download: boolean; can_manage: boolean } }>(`/documents/${id}`);
 			doc = res.data?.document ?? null;
 			versions = res.data?.versions ?? [];
+   canDownload = res.data?.permissions?.can_download ?? false;
+   canManage = res.data?.permissions?.can_manage ?? false;
+   selectedVersion = doc?.current_version ?? 0;
 			// Record a view event (best-effort; failure must not block the page).
 			api.post('/analytics/view-event', { document_id: id }).catch(() => {});
 		} catch {
@@ -28,14 +41,55 @@
 		loading = false;
 	}
 
-
  async function downloadCurrent() { await download('current', `/documents/${docId}/download`, doc?.name ?? 'document'); }
  async function downloadVersion(v: number) { await download(String(v), `/documents/${docId}/versions/${v}`, `${doc?.name ?? 'document'}-v${v}`); }
  async function download(key: string, path: string, name: string) {
   if (downloading[key]) return; downloading[key] = true; downloadError = '';
   try { await api.download(path, name); }
-  catch (err) { downloadError = apiErrorMessage(err, 'Download failed. Please try again.'); }
+  catch (err) { downloadError = apiErrorMessage(err, 'Download failed. Use Download to retry.'); }
   finally { downloading[key] = false; }
+ }
+
+ async function uploadVersion(event: SubmitEvent) {
+  event.preventDefault();
+  if (!file || busy || !canManage) return;
+  busy = true;
+  actionError = '';
+  const id = docId;
+  try {
+   const form = new FormData();
+   form.append('file', file);
+   form.append('change_note', changeNote);
+   await api.upload(`/documents/${id}/versions`, form);
+   file = null;
+   changeNote = '';
+   if (fileInput) fileInput.value = '';
+   await load(id);
+  } catch (err) { actionError = apiErrorMessage(err, 'Failed to upload a new version.'); }
+  finally { busy = false; }
+ }
+
+ async function deleteVersion(number: number) {
+  if (busy || !canManage || !confirm(`Delete version ${number}? This cannot be undone.`)) return;
+  busy = true;
+  actionError = '';
+  const id = docId;
+  try {
+   await api.delete(`/documents/${id}/versions/${number}`);
+   await load(id);
+  } catch (err) { actionError = apiErrorMessage(err, 'Failed to delete version.'); }
+  finally { busy = false; }
+ }
+
+ async function deleteDocument() {
+  if (busy || !canManage || !confirm(`Delete "${doc?.name}" and remove access to all its versions?`)) return;
+  busy = true;
+  actionError = '';
+  try {
+   await api.delete(`/documents/${docId}`);
+   await goto('/documents');
+  } catch (err) { actionError = apiErrorMessage(err, 'Failed to delete document.'); }
+  finally { busy = false; }
  }
 
 	function formatSize(bytes: number): string {
@@ -65,11 +119,14 @@
 	{:else if doc}
 		<header class="doc-header">
 			<h1>{doc.name}</h1>
-			{#if doc.mime_type === 'application/pdf'}<a class="btn-small" href="/documents/{docId}/preview" target="_blank" rel="noopener">Open PDF</a>{/if}
-   {#if doc.can_download}<button class="btn-primary" onclick={downloadCurrent} disabled={downloading.current} aria-busy={downloading.current ?? false}>{#if downloading.current}<span class="spinner" aria-hidden="true"></span>Preparing…{:else}Download{/if}</button>{/if}
+			<div class="header-actions">
+    {#if canDownload}<button class="btn-primary" onclick={downloadCurrent} disabled={busy || downloading.current} aria-busy={downloading.current ?? false}>{#if downloading.current}<span class="spinner" aria-hidden="true"></span>Preparing…{:else}Download{/if}</button>{/if}
+    {#if canManage}<button class="btn-small danger" onclick={deleteDocument} disabled={busy}>Delete document</button>{/if}
+   </div>
 		</header>
 
-		{#if downloadError}<div class="error-msg">{downloadError} Use Download to retry.</div>{/if}
+		{#if actionError}<div class="error-msg" role="alert">{actionError}</div>{/if}
+  {#if downloadError}<div class="error-msg">{downloadError}</div>{/if}
 		{#if doc.description}<p class="description">{doc.description}</p>{/if}
 
 		<dl class="meta">
@@ -82,6 +139,22 @@
 			{#if doc.tags}<div><dt>Tags</dt><dd>{doc.tags}</dd></div>{/if}
 		</dl>
 
+  {#if previewVersion?.mime_type === 'application/pdf'}
+   <h2>PDF preview — v{selectedVersion}</h2>
+   <a class="btn-small" href="/documents/{docId}/preview?version={selectedVersion}" target="_blank" rel="noopener">Open PDF</a>
+  {:else}
+   <p class="description">Preview is available for PDF files only.</p>
+  {/if}
+
+  {#if canManage}
+   <h2>Upload new version</h2>
+   <form class="version-form" onsubmit={uploadVersion}>
+    <label>Updated file <input type="file" bind:this={fileInput} onchange={(event) => file = event.currentTarget.files?.[0] ?? null} required disabled={busy} /></label>
+    <label>Change note <input type="text" bind:value={changeNote} disabled={busy} /></label>
+    <button class="btn-primary" type="submit" disabled={busy || !file}>{busy ? 'Saving…' : 'Upload new version'}</button>
+   </form>
+  {/if}
+
 		<h2>Version history</h2>
 		{#if versions.length === 0}
 			<p class="empty">No versions recorded.</p>
@@ -93,12 +166,15 @@
 				<tbody>
 					{#each versions as v}
 						<tr>
-							<td>v{v.version_number}</td>
+							<td>v{v.version_number}{v.version_number === doc.current_version ? ' (current)' : ''}</td>
 							<td>{formatSize(v.file_size)}</td>
 							<td>{v.change_note ?? '—'}</td>
 							<td>{formatDate(v.created_at)}</td>
-							<td>{#if v.mime_type === 'application/pdf'}<a class="btn-small" href="/documents/{docId}/preview?version={v.version_number}" target="_blank" rel="noopener">Open PDF</a>{/if}
-       {#if doc.can_download}<button class="btn-small" onclick={() => downloadVersion(v.version_number)} disabled={downloading[String(v.version_number)]} aria-busy={downloading[String(v.version_number)] ?? false}>{#if downloading[String(v.version_number)]}<span class="spinner" aria-hidden="true"></span>Preparing…{:else}Download{/if}</button>{/if}</td>
+							<td class="version-actions">
+        {#if v.mime_type === 'application/pdf'}<button class="btn-small" onclick={() => selectedVersion = v.version_number} disabled={busy}>View</button>{/if}
+        {#if canDownload}<button class="btn-small" onclick={() => downloadVersion(v.version_number)} disabled={busy || downloading[String(v.version_number)]} aria-busy={downloading[String(v.version_number)] ?? false}>{#if downloading[String(v.version_number)]}<span class="spinner" aria-hidden="true"></span>Preparing…{:else}Download{/if}</button>{/if}
+        {#if canManage}<button class="btn-small danger" onclick={() => deleteVersion(v.version_number)} disabled={busy || versions.length <= 1} title={versions.length <= 1 ? 'The last version cannot be deleted. Delete the document instead.' : 'Delete this version'}>Delete version</button>{/if}
+       </td>
 						</tr>
 					{/each}
 				</tbody>
@@ -108,9 +184,17 @@
 </div>
 
 <style>
- .spinner{display:inline-block;width:.75rem;height:.75rem;margin-right:.4rem;border:2px solid var(--dd-border);border-top-color:var(--dd-primary);border-radius:50%;animation:spin .8s linear infinite;}
- @keyframes spin{to{transform:rotate(360deg);}}
+ .spinner {display:inline-block;width:.75rem;height:.75rem;margin-right:.4rem;border:2px solid var(--dd-border);border-top-color:var(--dd-primary);border-radius:50%;animation:spin .8s linear infinite;}
+ @keyframes spin {to{transform:rotate(360deg);}}
  @media(prefers-reduced-motion:reduce){.spinner{animation:none;}}
+
+ .header-actions, .version-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+ .danger { color: var(--dd-error, #da1e28); }
+ .version-form { display: flex; flex-direction: column; gap: 1rem; padding: 1rem; border: 1px solid var(--dd-border); }
+ .version-form label { display: flex; flex-direction: column; gap: 0.5rem; }
+ .version-form input { background: var(--dd-surface); color: var(--dd-text); border: 1px solid var(--dd-border); padding: 0.5rem; }
+ button:disabled { opacity: 0.5; cursor: default; }
+
 	.page { max-width: 900px; margin: 0 auto; padding: 2rem; }
 	.back { color: var(--dd-primary); text-decoration: none; font-size: 0.875rem; }
 	.doc-header {

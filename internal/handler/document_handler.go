@@ -61,6 +61,7 @@ func (h *DocumentHandler) RegisterRoutes(g *echo.Group) {
 	g.GET("/documents/:id/versions/:version/preview", h.Preview)
 	g.GET("/documents/:id/versions/:version/preview-info", h.PreviewInfo)
 	g.GET("/documents/:id/versions/:version/preview-pages/:page", h.PreviewPage)
+	g.DELETE("/documents/:id/versions/:version", h.DeleteVersion, middleware.RequireRole(domain.RoleAdmin, domain.RoleCompanyMember))
 	g.POST("/documents/search", h.Search)
 }
 
@@ -69,9 +70,6 @@ func (h *DocumentHandler) RegisterRoutes(g *echo.Group) {
 // hold a matching grant on the document OR on its category. This is the single
 // authorization helper for every per-document read path.
 func (h *DocumentHandler) canAccessDocument(c echo.Context, doc *domain.Document, level string) (bool, error) {
-	if doc.IsArchived {
-		return false, nil
-	}
 	return documentAccessAllowed(c.Request().Context(), h.permRepo,
 		middleware.GetUserID(c), middleware.GetUserRole(c), doc, level)
 }
@@ -118,11 +116,8 @@ func (h *DocumentHandler) List(c echo.Context) error {
 		total = len(filtered)
 	}
 
-	for _, doc := range docs {
-		doc.CanDownload, err = h.canAccessDocument(c, doc, domain.AccessDownload)
-		if err != nil {
-			return response.InternalError(c)
-		}
+	if err := h.setDownloadPermissions(c, docs); err != nil {
+		return response.InternalError(c)
 	}
 	return response.OKWithMeta(c, "Documents retrieved", docs, &response.Meta{
 		Count:    len(docs),
@@ -157,13 +152,16 @@ func (h *DocumentHandler) Get(c echo.Context) error {
 		return response.InternalError(c)
 	}
 
-	doc.CanDownload, err = h.canAccessDocument(c, doc, domain.AccessDownload)
+	canDownload, err := h.canAccessDocument(c, doc, domain.AccessDownload)
 	if err != nil {
 		return response.InternalError(c)
 	}
+	doc.CanDownload = canDownload
+	role := middleware.GetUserRole(c)
 	return response.OK(c, "Document retrieved", map[string]any{
-		"document": doc,
-		"versions": versions,
+		"permissions": map[string]bool{"can_download": canDownload, "can_manage": role == domain.RoleAdmin || role == domain.RoleCompanyMember},
+		"document":    doc,
+		"versions":    versions,
 	})
 }
 
@@ -276,6 +274,9 @@ func (h *DocumentHandler) Update(c echo.Context) error {
 		return response.InternalError(c)
 	}
 
+	if doc.IsArchived {
+		return response.NotFound(c, "document not found")
+	}
 	if req.Name != "" {
 		doc.Name = req.Name
 	}
@@ -326,6 +327,9 @@ func (h *DocumentHandler) UploadVersion(c echo.Context) error {
 		return response.InternalError(c)
 	}
 
+	if doc.IsArchived {
+		return response.NotFound(c, "document not found")
+	}
 	file, err := c.FormFile("file")
 	if err != nil {
 		return response.BadRequest(c, "file is required")
@@ -386,9 +390,7 @@ func (h *DocumentHandler) UploadVersion(c echo.Context) error {
 
 // DownloadVersion handles GET /documents/:id/versions/:version.
 func (h *DocumentHandler) DownloadVersion(c echo.Context) error { return h.deliverFile(c, false) }
-
-// Download delivers the current original or prepared version, according to settings.
-func (h *DocumentHandler) Download(c echo.Context) error { return h.deliverFile(c, false) }
+func (h *DocumentHandler) Download(c echo.Context) error        { return h.deliverFile(c, false) }
 
 type searchRequest struct {
 	Query string `json:"query"`
@@ -427,11 +429,8 @@ func (h *DocumentHandler) Search(c echo.Context) error {
 		total = len(filtered)
 	}
 
-	for _, doc := range docs {
-		doc.CanDownload, err = h.canAccessDocument(c, doc, domain.AccessDownload)
-		if err != nil {
-			return response.InternalError(c)
-		}
+	if err := h.setDownloadPermissions(c, docs); err != nil {
+		return response.InternalError(c)
 	}
 	return response.OKWithMeta(c, "Search results", docs, &response.Meta{
 		Count:    len(docs),
@@ -440,4 +439,43 @@ func (h *DocumentHandler) Search(c echo.Context) error {
 		PageSize: 50,
 		HasMore:  total > 50,
 	})
+}
+
+func (h *DocumentHandler) setDownloadPermissions(c echo.Context, docs []*domain.Document) error {
+	for _, doc := range docs {
+		allowed, err := h.canAccessDocument(c, doc, domain.AccessDownload)
+		if err != nil {
+			return err
+		}
+		doc.CanDownload = allowed
+	}
+	return nil
+}
+
+func (h *DocumentHandler) DeleteVersion(c echo.Context) error {
+	number, err := strconv.Atoi(c.Param("version"))
+	if err != nil || number < 1 {
+		return response.BadRequest(c, "invalid version number")
+	}
+	doc, err := h.docRepo.GetByID(c.Request().Context(), c.Param("id"))
+	if err == domain.ErrDocumentNotFound {
+		return response.NotFound(c, "document not found")
+	}
+	if err != nil {
+		return response.InternalError(c)
+	}
+	if doc.IsArchived {
+		return response.NotFound(c, "document not found")
+	}
+	if err := h.docRepo.DeleteVersion(c.Request().Context(), doc.ID, number); err != nil {
+		if err == domain.ErrVersionNotFound {
+			return response.NotFound(c, "version not found")
+		}
+		if err == domain.ErrLastVersion {
+			return response.Conflict(c, err.Error())
+		}
+		return response.InternalError(c)
+	}
+	h.audit.LogFromContext(c, domain.AuditDocumentVersionDeleted, "document", doc.ID, doc.Name, fmt.Sprintf("version=%d", number))
+	return response.OK(c, "Version deleted", nil)
 }

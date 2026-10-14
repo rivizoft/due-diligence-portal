@@ -33,9 +33,23 @@ All responses use the standard envelope:
 | PUT | `/documents/:id` | Yes | Admin, Company | Update metadata |
 | DELETE | `/documents/:id` | Yes | Admin, Company | Archive (soft delete) |
 | POST | `/documents/:id/versions` | Yes | Admin, Company | Upload new version |
-| GET | `/documents/:id/versions/:v` | Yes | All | Download specific version |
-| GET | `/documents/:id/download` | Yes | All | Download current version |
+| GET | `/documents/:id/versions/:v` | Yes | All | Download specific version (download permission) |
+| DELETE | `/documents/:id/versions/:v` | Yes | Admin, Company | Delete version (last version cannot be removed) |
+| GET | `/documents/:id/preview` | Yes | All | Preview current PDF bytes (download permission) |
+| GET | `/documents/:id/versions/:v/preview` | Yes | All | Preview specific PDF version bytes (download permission) |
+| GET | `/documents/:id/download` | Yes | All | Download current version (download permission) |
 | POST | `/documents/search` | Yes | All | Full-text search (`{"query":"..."}`) |
+
+Document list/search entries include `can_download`. Detail responses include
+`permissions: {can_download, can_manage}` alongside `document` and `versions`.
+PDF preview returns authenticated `application/pdf` bytes with inline disposition
+and `Cache-Control: private, no-store` only with download permission; non-PDF previews return 422.
+View-only clients use preview-info and preview-pages to receive PNG pages. Missing/inaccessible
+or archived documents return 404. Investors cannot upload or delete versions,
+regardless of their grant level. Deleting the current version switches to the
+highest remaining version and updates MIME type and size atomically. Version
+numbers are never reused. Deleting the last version returns 409; delete the
+document instead.
 
 ## Categories
 
@@ -44,7 +58,7 @@ All responses use the standard envelope:
 | GET | `/categories` | Yes | All | List categories (tree structure) |
 | POST | `/categories` | Yes | Admin | Create category |
 | PUT | `/categories/:id` | Yes | Admin | Update category |
-| DELETE | `/categories/:id` | Yes | Admin | Delete (must be empty) |
+| DELETE | `/categories/:id` | Yes | Admin | Delete (no active documents or subcategories) |
 
 ## Permissions
 
@@ -176,8 +190,9 @@ includes `can_download`, computed from current server permissions.
 
 All PDF byte routes require download permission; hiding client controls is not
 an authorization check. View-only users receive PNG pages, never a PDF fallback.
-In the existing default `DD_INVESTOR_ACCESS=all` mode, all investors have download
-access; use `DD_INVESTOR_ACCESS=granted` and view grants for view-only behavior.
+In `DD_INVESTOR_ACCESS=all`, ungranted investors have download access but explicit
+view-only grants restrict it. Use `DD_INVESTOR_ACCESS=granted` to require grants
+for all document access.
 
 Enabled watermarks apply to every PDF page on authorized delivery and are
 personalized with JWT identity, document name and UTC date `YYYY-MM-DD`.

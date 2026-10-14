@@ -4,6 +4,7 @@ import "time"
 
 // Document represents a document's metadata (file content is in DocumentVersion).
 type Document struct {
+	CanDownload    bool      `json:"can_download"`
 	ID             string    `json:"id"`
 	Name           string    `json:"name"`
 	Description    string    `json:"description,omitempty"`
@@ -16,8 +17,6 @@ type Document struct {
 	Tags           string    `json:"tags,omitempty"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
-
-	CanDownload bool `json:"can_download"`
 
 	// Joined fields (not stored directly).
 	CategoryName string `json:"category_name,omitempty"`

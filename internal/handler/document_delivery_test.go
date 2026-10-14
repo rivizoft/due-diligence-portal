@@ -187,3 +187,20 @@ func TestDocumentDeliverySettingsSnapshot(t *testing.T) {
 	require.Equal(t, 200, result.Code)
 	require.Equal(t, int32(1), r.reads.Load(), "one settings snapshot must drive the whole request")
 }
+
+func TestDocumentDeliveryVersionDeletedDuringPreparation(t *testing.T) {
+	w := blockingWatermarker{make(chan struct{}), make(chan struct{})}
+	d := setupDelivery(t, w)
+	ctx := context.Background()
+	doc, err := d.docs.GetByID(ctx, "pdf")
+	require.NoError(t, err)
+	require.NoError(t, d.docs.AddVersion(ctx, doc, &domain.DocumentVersion{ID: "v2", DocumentID: doc.ID, FileData: d.data, FileSize: int64(len(d.data)), MimeType: "application/pdf", ChecksumSHA256: fmt.Sprintf("%x", sha256.Sum256(d.data)), UploadedBy: "staff"}))
+	done := make(chan *httptest.ResponseRecorder)
+	go func() { done <- d.get("/versions/2/preview", "staff") }()
+	<-w.started
+	require.NoError(t, d.docs.DeleteVersion(ctx, "pdf", 2))
+	close(w.gate)
+	r := <-done
+	require.Equal(t, 404, r.Code, "deleted versions must not be delivered after preparation")
+	require.NotContains(t, r.Body.String(), "%PDF")
+}
