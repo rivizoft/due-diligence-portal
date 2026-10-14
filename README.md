@@ -104,3 +104,48 @@ cd ui && npm test                    # 10 Vitest unit tests
 ## License
 
 [Apache License 2.0](LICENSE)
+
+### PDF watermarks and view-only preview
+
+Enable PDF watermarks in Admin → Watermark. Delivery uses a private server-side
+cache of personalized copies; uploaded originals are preserved. Open PDF starts
+preparation in a new tab. Download shows preparation in the clicked button.
+With download access, the tab uses the browser PDF viewer. With view-only access,
+it requests server-rendered PNG pages, including the watermark, without exposing
+the PDF file. Screenshots and saving visible images remain possible.
+
+The runtime requires `pdfinfo`, `pdftoppm` (Poppler) and `prlimit` (util-linux);
+the Dockerfile installs them. The embedded DejaVu Sans font supports Latin and
+Cyrillic; its redistribution notice is in `internal/service/pdf/assets/`.
+pdfcpu is Apache-2.0; Poppler and util-linux are separately installed runtime
+tools under their respective licenses. Advanced text shaping and arbitrary
+scripts are not guaranteed by this font/renderer combination.
+
+| Environment variable | Default | Meaning |
+|---|---|---|
+| `DD_PDF_WORKERS` | `2` | Maximum simultaneous heavy operations per process |
+| `DD_PDF_QUEUE_SIZE` | `8` | Additional distinct queued operations |
+| `DD_PDF_CACHE_BYTES` | `536870912` | LRU budget for cached PDF, metadata and PNG files |
+| `DD_PDF_CACHE_TTL` | `15m` | Artifact lifetime |
+| `DD_PDF_TIMEOUT` | `60s` | API preparation deadline and per-stage job deadline |
+| `DD_PDF_MAX_INPUT_BYTES` | `104857600` | Input limit for watermarked PDF or image preview |
+| `DD_PDF_CACHE_DIR` | system temp | Parent of the private temporary artifact directory |
+
+Invalid explicit settings fail startup. Use a writable private temporary
+filesystem; generated cache files are not served statically and are removed on
+normal shutdown/eviction. Crash leftovers can be cleared while the server is
+stopped. Caches and limits are per process, not distributed. LRU/TTL apply to
+cached files: in-use/uncached files and transient input files can temporarily
+exceed the cache budget. Limits do not constitute a whole-process memory cap;
+SQLite still loads an admitted version BLOB into memory.
+
+PNG pages load lazily, at most 1600 pixels on the long edge. Raster subprocesses
+have fixed caps: 512 MiB address space, 60 CPU seconds, 64 MiB output, and are
+killed on timeout. Preview metadata is capped at 10,000 pages and 14,400 points
+per page dimension. The in-process PDF engine cannot be forcibly interrupted;
+a timed-out request stops waiting, but its worker remains occupied until the
+engine finishes. Do not increase input/worker limits without workload measurements.
+
+In the existing default `DD_INVESTOR_ACCESS=all` mode, investors have download
+access. Set `DD_INVESTOR_ACCESS=granted` and assign view grants for view-only
+access. Every binary route independently checks the current permission.

@@ -1,6 +1,6 @@
 # PDF Watermark Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Apply configured personal watermarks to PDF downloads and both viewing modes without exposing PDF bytes to view-only users.
 
@@ -53,11 +53,11 @@
 - `Watermarker.Apply(ctx context.Context, inputPath, outputPath string, config domain.WatermarkConfig, text string) error`.
 - `Config { Workers, QueueSize int; CacheBytes, MaxInputBytes int64; TTL, Timeout time.Duration; CacheDir string }`; `LoadConfig() (Config,error)` reads DD_PDF_* variables, rejecting invalid explicit values.
 
-- [ ] Write `TestRenderText` asserting repeated variables, literal Unicode/name punctuation, UTC rollover and rejection of unknown/unclosed variables. Write real-PDF `TestWatermarker` asserting unchanged source SHA, all pages marked, readable original text, positions/opacity/size/color, rotated/landscape pages and long Cyrillic text. Assert malformed/encrypted input returns an error without output.
-- [ ] Run `go test ./internal/service/pdf -run 'TestRenderText|TestWatermarker|TestConfig' -v`; confirm failing tests exercise absent behavior before implementation.
-- [ ] Pin pdfcpu after checking API/Go compatibility and license; bundle a redistributable Unicode font and license. Implement named interfaces using pdfcpu text watermark with embedded font; use per-page fitting for long text. Preserve text, rotation and source bytes; check context before/after calls. Config defaults exactly match Global Constraints; use a private os.MkdirTemp cache directory.
-- [ ] Add Poppler and the resource-limiter executable to Alpine runtime dependencies, copy embedded font into the Go build inputs. Document dependency versions/licenses. Verify no required CGO or write to installed font directories under UID 1001.
-- [ ] Run engine tests, inspect rendered sample pages with pdftoppm and check extracted text with pdftotext. Commit `feat: add PDF watermark engine`.
+- [x] Write `TestRenderText` asserting repeated variables, literal Unicode/name punctuation, UTC rollover and rejection of unknown/unclosed variables. Write real-PDF `TestWatermarker` asserting unchanged source SHA, all pages marked, readable original text, positions/opacity/size/color, rotated/landscape pages and long Cyrillic text. Assert malformed/encrypted input returns an error without output.
+- [x] Run `go test ./internal/service/pdf -run 'TestRenderText|TestWatermarker|TestConfig' -v`; confirm failing tests exercise absent behavior before implementation.
+- [x] Pin pdfcpu after checking API/Go compatibility and license; bundle a redistributable Unicode font and license. Implement named interfaces using pdfcpu text watermark with embedded font; use per-page fitting for long text. Preserve text, rotation and source bytes; check context before/after calls. Config defaults exactly match Global Constraints; use a private os.MkdirTemp cache directory.
+- [x] Add Poppler and the resource-limiter executable to Alpine runtime dependencies, copy embedded font into the Go build inputs. Document dependency versions/licenses. Verify no required CGO or write to installed font directories under UID 1001.
+- [x] Run engine tests, inspect rendered sample pages with pdftoppm and check extracted text with pdftotext. Commit `feat: add PDF watermark engine`.
 
 ### Task 2: Bounded artifact cache and orchestration
 
@@ -69,11 +69,11 @@
 - `Service.Prepare(ctx context.Context, source Source, identity Identity, config domain.WatermarkConfig, at time.Time, load func(context.Context)([]byte,error)) (Artifact,error)`.
 - `Cache.Do(ctx context.Context, key string, build func(context.Context,string) error) (Artifact,error)`; `Cache.Close() error` clears temporary artifacts after active users exit. Typed errors: ErrBusy, ErrTimeout, ErrTooLarge, ErrUnsupported, ErrRender.
 
-- [ ] Write `TestCache` with fake clock and barrier-controlled builders: identical requests call builder once; distinct keys allow two builders and eight queued operations; next is ErrBusy; TTL expires at 15 minutes; LRU byte budget enforced; partial/error outputs removed; leased file survives eviction; release deletes uncached oversized output. Write `TestPrepareKeys` for identity, source checksum/version, settings edited within one second, document rename, UTC date and renderer version.
-- [ ] Write `TestPrepareCancellation`: cancelling one waiter leaves the other successful; last waiter cancels supported work; noncancellable engine does not free its slot early. Assert size rejection occurs before loader, and cache hit skips loader. Verify metadata-only repository lookup does not read FileData.
-- [ ] Run `go test ./internal/service/pdf ./internal/repository -run 'TestCache|TestPrepare|TestDocumentRepository.*Metadata' -v`; confirm expected failures.
-- [ ] Implement SHA-256 keys from canonical structured fields, atomic private file publication, leases, LRU/TTL byte accounting and per-key waiter lifecycle. Acquire bounded admission before loading input bytes, validate loaded checksum and actual size, remove inputs on every path. No nested worker-slot acquisition; no unlimited goroutine-backed queue.
-- [ ] Run above tests and `go test -race ./internal/service/pdf`; commit `feat: cache and bound PDF preparation`.
+- [x] Write `TestCache` with fake clock and barrier-controlled builders: identical requests call builder once; distinct keys allow two builders and eight queued operations; next is ErrBusy; TTL expires at 15 minutes; LRU byte budget enforced; partial/error outputs removed; leased file survives eviction; release deletes uncached oversized output. Write `TestPrepareKeys` for identity, source checksum/version, settings edited within one second, document rename, UTC date and renderer version.
+- [x] Write `TestPrepareCancellation`: cancelling one waiter leaves the other successful; last waiter cancels supported work; noncancellable engine does not free its slot early. Assert size rejection occurs before loader, and cache hit skips loader. Verify metadata-only repository lookup does not read FileData.
+- [x] Run `go test ./internal/service/pdf ./internal/repository -run 'TestCache|TestPrepare|TestDocumentRepository.*Metadata' -v`; confirm expected failures.
+- [x] Implement SHA-256 keys from canonical structured fields, atomic private file publication, leases, LRU/TTL byte accounting and per-key waiter lifecycle. Acquire bounded admission before loading input bytes, validate loaded checksum and actual size, remove inputs on every path. No nested worker-slot acquisition; no unlimited goroutine-backed queue.
+- [x] Run above tests and `go test -race ./internal/service/pdf`; commit `feat: cache and bound PDF preparation`.
 
 ### Task 3: Lazy raster preview
 
@@ -85,11 +85,11 @@
 - `Rasterizer.Page(ctx context.Context,inputPath,outputPath string,page int) error` accepts 1-based page, fixed bounds from Global Constraints.
 - `Service.Info(ctx context.Context,pdf Artifact) (PreviewInfo,error)` and `Service.Page(ctx context.Context,pdf Artifact,page int) (Artifact,error)` use the same cache and worker admission as Task 2, with separate stage acquisition.
 
-- [ ] Write integration tests using real fixtures: page count/rotated sizes, PNG bounds, watermark baked into output, invalid page/huge dimensions/encryption rejected. Fake command-runner tests assert no shell invocation, fixed arguments, capped stdout/stderr, deadline actually kills process and no partial PNG is cached. Write lazy tests asserting requesting page 1 never renders pages 2+.
-- [ ] Run `go test ./internal/service/pdf -run 'TestRaster|TestPoppler' -v`; confirm failure.
-- [ ] Implement pdfinfo metadata parsing and pdftoppm `-f N -l N -singlefile -scale-to 1600 -png`. Run via exec.CommandContext under prlimit: initial per-process address-space 512 MiB, CPU 60 seconds, file-size 64 MiB, bounded captured output; check supported flags on Alpine and Linux. Remove process/output on cancellation. Validate page count/index and image dimensions. Image keys include prepared artifact identity, page, resolution, format and renderer version. Metadata parsing is admitted as heavy work too.
-- [ ] Ensure cached PDF lease lasts until raster job finishes; no nested worker acquisition or unauthorized direct static file serving.
-- [ ] Run raster tests and service race tests, verify runtime UID 1001 smoke test. Commit `feat: render private PDF preview pages`.
+- [x] Write integration tests using real fixtures: page count/rotated sizes, PNG bounds, watermark baked into output, invalid page/huge dimensions/encryption rejected. Fake command-runner tests assert no shell invocation, fixed arguments, capped stdout/stderr, deadline actually kills process and no partial PNG is cached. Write lazy tests asserting requesting page 1 never renders pages 2+.
+- [x] Run `go test ./internal/service/pdf -run 'TestRaster|TestPoppler' -v`; confirm failure.
+- [x] Implement pdfinfo metadata parsing and pdftoppm `-f N -l N -singlefile -scale-to 1600 -png`. Run via exec.CommandContext under prlimit: initial per-process address-space 512 MiB, CPU 60 seconds, file-size 64 MiB, bounded captured output; check supported flags on Alpine and Linux. Remove process/output on cancellation. Validate page count/index and image dimensions. Image keys include prepared artifact identity, page, resolution, format and renderer version. Metadata parsing is admitted as heavy work too.
+- [x] Ensure cached PDF lease lasts until raster job finishes; no nested worker acquisition or unauthorized direct static file serving.
+- [x] Run raster tests and service race tests, verify runtime UID 1001 smoke test. Commit `feat: render private PDF preview pages`.
 
 ### Task 4: Authorized delivery endpoints and settings validation
 
@@ -102,12 +102,12 @@
 - GET `/documents/:id/preview-pages/:page` and historical equivalent `/documents/:id/versions/:version/preview-pages/:page`: AccessView, image/png.
 - Existing download endpoints: AccessDownload, attachment, watermark-enabled PDF through Prepare; non-PDF and disabled PDF preserve bytes.
 
-- [ ] Write handler tests for all routes, both role/grant modes and historical versions: view-only gets only images/metadata; direct PDF routes denied even on cache hit; no anonymous access; archived/deleted documents cannot leak through cache; revoke grant during barrier-controlled preparation and assert denial. Assert no binary body after failures, private/no-store and correct content type/disposition.
-- [ ] Write settings tests: unsupported placeholders, invalid/nonfinite numeric fields, malformed color and empty enabled template return 400; all supported existing settings still round-trip. All placeholder substitution stays literal.
-- [ ] Run `go test ./internal/handler -run 'TestDocument.*Delivery|TestWatermark' -v`; confirm failures.
-- [ ] Implement shared access/version/config resolution followed by service calls and final authorization check. Derive identity from JWT. Validate metadata/checksum before loading. Return 404 for denied access as existing convention, 413 for oversized input, 422 for unsupported/render errors, 503 + Retry-After for busy queue, 504 for timeout; use JSON envelope. Audit successful PDF delivery as download and image-page delivery as preview, never successful download on error. No external artifact path in API responses.
-- [ ] Wire config/service creation and cleanup at startup/shutdown. Update watermark validation and API docs, including signed-PDF warning and date format.
-- [ ] Run all handler/repository tests. Commit `feat: enforce PDF delivery permissions and watermarks`.
+- [x] Write handler tests for all routes, both role/grant modes and historical versions: view-only gets only images/metadata; direct PDF routes denied even on cache hit; no anonymous access; archived/deleted documents cannot leak through cache; revoke grant during barrier-controlled preparation and assert denial. Assert no binary body after failures, private/no-store and correct content type/disposition.
+- [x] Write settings tests: unsupported placeholders, invalid/nonfinite numeric fields, malformed color and empty enabled template return 400; all supported existing settings still round-trip. All placeholder substitution stays literal.
+- [x] Run `go test ./internal/handler -run 'TestDocument.*Delivery|TestWatermark' -v`; confirm failures.
+- [x] Implement shared access/version/config resolution followed by service calls and final authorization check. Derive identity from JWT. Validate metadata/checksum before loading. Return 404 for denied access as existing convention, 413 for oversized input, 422 for unsupported/render errors, 503 + Retry-After for busy queue, 504 for timeout; use JSON envelope. Audit successful PDF delivery as download and image-page delivery as preview, never successful download on error. No external artifact path in API responses.
+- [x] Wire config/service creation and cleanup at startup/shutdown. Update watermark validation and API docs, including signed-PDF warning and date format.
+- [x] Run all handler/repository tests. Commit `feat: enforce PDF delivery permissions and watermarks`.
 
 ### Task 5: New-tab preview and download feedback
 
@@ -119,23 +119,27 @@
 - `PdfPreview` consumes document ID, pinned version and pages; fetches authenticated page PNGs lazily, prefetches at most one next page.
 - Effective can_download permission exposed in existing document metadata/list response using current access helper; backend remains authoritative. Historical Open PDF buttons use historical MIME type.
 
-- [ ] Write binary-client tests for success, JSON error propagation, one-shot refresh, abort and no JWT in URL. Write UI/e2e tests for immediate new tab/status, standard viewer only in pdf mode, view-only requests limited to info/PNG, first-page status then per-page retry, lazy next-page requests, no PDF fallback, document download pending/error/retry and expired permissions. Assert removal of object URLs on replacement/unmount.
-- [ ] Run `npm test -- --run` in ui and targeted Playwright test against mocked API to confirm failures before feature code.
-- [ ] Implement binary helper and new route with no-opener link target=_blank. Keep shell around PDF iframe/object and release Blob URLs on cleanup. In image mode provide page navigation without download/print controls, show readable status/error text and aria-live; AbortController cancels requests on unmount. Browser viewer fallback download is available only in pdf mode.
-- [ ] Add Open PDF links in list, detail and historical rows; show Download only when allowed. Download buttons disable independently while receiving bytes and show a spinner/text. Keep request errors visible with retry.
-- [ ] Replace settings demonstration with page-shaped sample showing position, opacity/font/color and all variables; label as illustrative. Explain both delivery modes, PDF-only scope, signed-document caveat and inability to prevent screenshots.
-- [ ] Run `npm test`, `npm run check`, `npm run build`, `npm run lint` and preview e2e tests. Commit `feat: add PDF viewing modes and preparation feedback`.
+- [x] Write binary-client tests for success, JSON error propagation, one-shot refresh, abort and no JWT in URL. Write UI/e2e tests for immediate new tab/status, standard viewer only in pdf mode, view-only requests limited to info/PNG, first-page status then per-page retry, lazy next-page requests, no PDF fallback, document download pending/error/retry and expired permissions. Assert removal of object URLs on replacement/unmount.
+- [x] Run `npm test -- --run` in ui and targeted Playwright test against mocked API to confirm failures before feature code.
+- [x] Implement binary helper and new route with no-opener link target=_blank. Keep shell around PDF iframe/object and release Blob URLs on cleanup. In image mode provide page navigation without download/print controls, show readable status/error text and aria-live; AbortController cancels requests on unmount. Browser viewer fallback download is available only in pdf mode.
+- [x] Add Open PDF links in list, detail and historical rows; show Download only when allowed. Download buttons disable independently while receiving bytes and show a spinner/text. Keep request errors visible with retry.
+- [x] Replace settings demonstration with page-shaped sample showing position, opacity/font/color and all variables; label as illustrative. Explain both delivery modes, PDF-only scope, signed-document caveat and inability to prevent screenshots.
+- [x] Run `npm test`, `npm run check`, `npm run build`, `npm run lint` and preview e2e tests. Commit `feat: add PDF viewing modes and preparation feedback`.
 
 ### Task 6: Performance verification and release documentation
 
 **Files:** Create `internal/service/pdf/benchmark_test.go`; update `README.md`, `docs/USER_GUIDE.md`, `docs/API.md`; create `docs/superpowers/pdf-watermark-verification.md` with actual measured results.
 
-- [ ] Add benchmarks for small multi-page PDF cold/warm Prepare, first-page render, sequential page cache and same-key vs distinct-user concurrency. Generate large fixture under work/ near 100 MiB; do not commit it. Include a many-page/high-complexity fixture since byte size alone does not predict cost.
-- [ ] Run Go tests `go test ./...`, `go test -race ./internal/service/pdf`, UI validation from Task 5 and `go test ./internal/service/pdf -bench . -benchmem`. Measure peak RSS and temporary disk use with capped concurrency; record environment, fixture characteristics and timings, including first-page latency and warm response.
-- [ ] Build runtime image and smoke-test both modes as nonroot after reading applicable cloud Docker guidance. Test timeout/queue overflow and worker recovery. Verify deployment includes renderer/resource limiter/font licenses and readonly filesystem compatibility except explicit temp/data directories. If environment blocks a check, report it as unverified rather than passed.
-- [ ] Inspect network responses in browser as view-only: no application/pdf or source PDF URL; inspect actual raster watermark and browser PDF watermark across rotated/Unicode fixture pages. Confirm download grant and revoked grant behavior, old version, disabled settings and screenshots limitation.
-- [ ] Document all DD_PDF_* defaults, runtime binaries, per-process caches, date format, full-file fetch limitation, view-only lack of search/selection, input cap and errors. Record measured limits and any material deployment caveats. Adjust defaults only with spec review if measurements require scope/behavior changes.
-- [ ] Commit `docs: document and verify PDF watermark delivery`; perform whole-change review before reporting completion.
+- [x] Add benchmarks for small multi-page PDF cold/warm Prepare, first-page render, sequential page cache and same-key vs distinct-user concurrency. Generate large fixture under work/ near 100 MiB; do not commit it. Include a many-page/high-complexity fixture since byte size alone does not predict cost.
+- [x] Run Go tests `go test ./...`, `go test -race ./internal/service/pdf`, UI validation from Task 5 and `go test ./internal/service/pdf -bench . -benchmem`. Measure peak RSS and temporary disk use with capped concurrency; record environment, fixture characteristics and timings, including first-page latency and warm response.
+- [x] Build runtime image and smoke-test both modes as nonroot after reading applicable cloud Docker guidance. Test timeout/queue overflow and worker recovery. Verify deployment includes renderer/resource limiter/font licenses and readonly filesystem compatibility except explicit temp/data directories. If environment blocks a check, report it as unverified rather than passed.
+- [x] Inspect network responses in browser as view-only: no application/pdf or source PDF URL; inspect actual raster watermark and browser PDF watermark across rotated/Unicode fixture pages. Confirm download grant and revoked grant behavior, old version, disabled settings and screenshots limitation.
+- [x] Document all DD_PDF_* defaults, runtime binaries, per-process caches, date format, full-file fetch limitation, view-only lack of search/selection, input cap and errors. Record measured limits and any material deployment caveats. Adjust defaults only with spec review if measurements require scope/behavior changes.
+- [x] Commit `docs: document and verify PDF watermark delivery`; perform whole-change review before reporting completion.
+
+## Execution verification
+
+Implementation tasks executed inline. Alpine image build/UID 1001 verification is blocked by environment network policy; host nonroot production smoke and all other checks passed. See `docs/superpowers/pdf-watermark-verification.md` for evidence and limits.
 
 ## Plan self-review
 
