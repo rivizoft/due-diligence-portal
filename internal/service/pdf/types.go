@@ -4,8 +4,9 @@ package pdf
 import (
 	"context"
 	"errors"
-	"github.com/witfoo/due-diligence-portal/internal/domain"
 	"time"
+
+	"github.com/witfoo/due-diligence-portal/internal/domain"
 )
 
 var (

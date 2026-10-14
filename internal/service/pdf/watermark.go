@@ -4,17 +4,19 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"github.com/pdfcpu/pdfcpu/pkg/api"
-	"github.com/pdfcpu/pdfcpu/pkg/font"
-	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
-	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
-	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
-	"github.com/witfoo/due-diligence-portal/internal/domain"
 	"math"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/pdfcpu/pdfcpu/pkg/api"
+	"github.com/pdfcpu/pdfcpu/pkg/font"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
+
+	"github.com/witfoo/due-diligence-portal/internal/domain"
 )
 
 //go:embed assets/DejaVuSans.ttf

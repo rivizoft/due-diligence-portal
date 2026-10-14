@@ -5,9 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"github.com/witfoo/due-diligence-portal/internal/domain"
 	"os"
 	"time"
+
+	"github.com/witfoo/due-diligence-portal/internal/domain"
 )
 
 const rendererVersion = "pdfcpu-0.11.1-dejavu-v1"
@@ -81,7 +82,6 @@ func (s *Service) Prepare(ctx context.Context, source Source, id Identity, c dom
 		defer os.Remove(name)
 		_, err = input.Write(data)
 		closeErr := input.Close()
-		data = nil
 		if err != nil {
 			return err
 		}

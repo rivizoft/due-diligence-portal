@@ -147,14 +147,14 @@ func (c *Cache) do(ctx context.Context, key string, build func(context.Context, 
 	c.mu.Unlock()
 	select {
 	case <-ctx.Done():
-		c.leave(key, j)
+		c.leave(j)
 		return Artifact{}, ctx.Err()
 	case <-j.ctx.Done():
 		// A completed job cancels its context too; prefer its published result.
 		select {
 		case <-j.done:
 		default:
-			c.leave(key, j)
+			c.leave(j)
 			if j.ctx.Err() == context.DeadlineExceeded {
 				return Artifact{}, ErrTimeout
 			}
@@ -171,12 +171,12 @@ func (c *Cache) do(ctx context.Context, key string, build func(context.Context, 
 	if ctx.Err() != nil {
 		err = ctx.Err()
 	}
-	c.leaveLocked(key, j)
+	c.leaveLocked(j)
 	c.mu.Unlock()
 	return a, err
 }
-func (c *Cache) leave(key string, j *flight) { c.mu.Lock(); defer c.mu.Unlock(); c.leaveLocked(key, j) }
-func (c *Cache) leaveLocked(key string, j *flight) {
+func (c *Cache) leave(j *flight) { c.mu.Lock(); defer c.mu.Unlock(); c.leaveLocked(j) }
+func (c *Cache) leaveLocked(j *flight) {
 	j.waiters--
 	if j.waiters == 0 {
 		j.cancel()

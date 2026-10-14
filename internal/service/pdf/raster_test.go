@@ -2,13 +2,15 @@ package pdf
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
-	"github.com/witfoo/due-diligence-portal/internal/domain"
 	"image/png"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/witfoo/due-diligence-portal/internal/domain"
 )
 
 func TestPopplerInfoAndPage(t *testing.T) {
