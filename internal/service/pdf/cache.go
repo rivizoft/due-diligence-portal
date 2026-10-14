@@ -104,6 +104,17 @@ func (c *Cache) lease(e *cacheEntry) Artifact {
 	}, retain: func() Artifact { c.mu.Lock(); defer c.mu.Unlock(); return c.lease(e) }}
 }
 func (c *Cache) Do(ctx context.Context, key string, build func(context.Context, string) error) (Artifact, error) {
+	return c.do(ctx, key, build, nil)
+}
+
+// do transfers cleanup ownership only to a newly admitted job, including cancellation.
+func (c *Cache) do(ctx context.Context, key string, build func(context.Context, string) error, cleanup func()) (Artifact, error) {
+	transferred := false
+	defer func() {
+		if !transferred && cleanup != nil {
+			cleanup()
+		}
+	}()
 	if e := ctx.Err(); e != nil {
 		return Artifact{}, e
 	}
@@ -128,7 +139,8 @@ func (c *Cache) Do(ctx context.Context, key string, build func(context.Context, 
 		j = &flight{done: make(chan struct{}), cancel: cancel}
 		c.jobs[key] = j
 		c.wg.Add(1)
-		go c.run(jobctx, key, j, build)
+		transferred = true
+		go c.run(jobctx, key, j, build, cleanup)
 	}
 	j.waiters++
 	c.mu.Unlock()
@@ -164,8 +176,11 @@ func (c *Cache) leaveLocked(key string, j *flight) {
 		}
 	}
 }
-func (c *Cache) run(ctx context.Context, key string, j *flight, build func(context.Context, string) error) {
+func (c *Cache) run(ctx context.Context, key string, j *flight, build func(context.Context, string) error, cleanup func()) {
 	defer c.wg.Done()
+	if cleanup != nil {
+		defer cleanup()
+	}
 	var err error
 	var path string
 	var size int64
