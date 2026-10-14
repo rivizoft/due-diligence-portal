@@ -25,7 +25,9 @@ cd ui && npm test
 
 Single Docker image: Go API (Echo v4) serves REST endpoints at `/api/v1/*` and
 pre-built SvelteKit static assets. SQLite (`modernc.org/sqlite`, pure Go) for
-all data including document BLOBs. Browser -> Go Echo -> SQLite.
+metadata and document BLOBs by default. Optional private S3 originals are configured
+through Admin > Storage; existing SQLite versions remain readable. Browser -> Go
+Echo -> SQLite / configured S3. Credentials never use AWS environment discovery.
 
 ## Project Layout
 
@@ -53,6 +55,10 @@ ui/src/                        Svelte 5 + SvelteKit (adapter-static)
 - **Security**: All input hostile. `pkg/sanitize` for logs (CWE-117), CSS, SVG, filenames
 - **Testing**: Table-driven `t.Run()`, testify, in-memory SQLite for repo tests
 - **Air-gapped**: No CDN fonts, no external APIs. Self-hosted assets.
+- **Optional S3**: `internal/service/storage` coordinates encrypted settings,
+  object references, delivery and durable cleanup. Network calls stay outside SQL
+  transactions. Keep S3 disabled for disconnected operation; never return keys or
+  object locations in document API payloads.
 - **Disconnected-network**: CSP allows `'self'` + `'unsafe-inline'` (SvelteKit bootstrap)
 
 ## Documentation
@@ -72,5 +78,7 @@ SQLite WAL mode. Schema in `internal/repository/migrations/`:
 - `002_fts_indexes.sql` — FTS5 full-text search with sync triggers
 - `003_seed_categories.sql` — 10 due diligence categories + singleton configs
 - `004_nda_exemptions.sql` — per-user NDA waivers with optional externally executed NDA document (BLOB)
+- `005_document_lifecycle.sql` — monotonic document-version counters
+- `006_s3_storage.sql` — encrypted singleton storage settings, version object references and durable deletion jobs
 
 Migrations are idempotent (`IF NOT EXISTS` / `INSERT OR IGNORE`), run on every boot.
