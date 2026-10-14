@@ -101,6 +101,9 @@ func (r *documentRepository) CreateWithVersion(ctx context.Context, doc *domain.
 		v.MimeType, v.ChecksumSHA256, v.ChangeNote, v.UploadedBy, now); err != nil {
 		return fmt.Errorf("create document version (doc=%s): %w", v.DocumentID, err)
 	}
+	if err := insertVersionStorage(ctx, tx, v); err != nil {
+		return err
+	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit create-with-version: %w", err)
 	}
@@ -133,6 +136,9 @@ func (r *documentRepository) AddVersion(ctx context.Context, doc *domain.Documen
 		v.ID, v.DocumentID, v.VersionNumber, v.FileData, v.FileSize,
 		v.MimeType, v.ChecksumSHA256, v.ChangeNote, v.UploadedBy, now); err != nil {
 		return fmt.Errorf("create document version (doc=%s, v=%d): %w", v.DocumentID, next, err)
+	}
+	if err := insertVersionStorage(ctx, tx, v); err != nil {
+		return err
 	}
 	if _, err := tx.ExecContext(ctx,
 		`UPDATE documents SET current_version = ?, mime_type = ?, file_size = ?, updated_at = ? WHERE id = ?`,
@@ -251,16 +257,32 @@ func (r *documentRepository) Archive(ctx context.Context, id string) error {
 	return nil
 }
 
+func insertVersionStorage(ctx context.Context, tx *sql.Tx, v *domain.DocumentVersion) error {
+	if v.Storage == nil {
+		return nil
+	}
+	_, err := tx.ExecContext(ctx, `INSERT INTO document_version_storage(version_id,bucket,object_key) VALUES(?,?,?)`, v.ID, v.Storage.Bucket, v.Storage.Key)
+	if err != nil {
+		return fmt.Errorf("insert version storage: %w", err)
+	}
+	return nil
+}
+
 func (r *documentRepository) CreateVersion(ctx context.Context, v *domain.DocumentVersion) error {
 	now := time.Now().UTC().Format(time.RFC3339)
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO document_versions (id, document_id, version_number, file_data, file_size, mime_type, checksum_sha256, change_note, uploaded_by, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		v.ID, v.DocumentID, v.VersionNumber, v.FileData, v.FileSize,
-		v.MimeType, v.ChecksumSHA256, v.ChangeNote, v.UploadedBy, now,
-	)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("create document version (doc=%s, v=%d): %w", v.DocumentID, v.VersionNumber, err)
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err = tx.ExecContext(ctx, insertVersionSQL, v.ID, v.DocumentID, v.VersionNumber, v.FileData, v.FileSize, v.MimeType, v.ChecksumSHA256, v.ChangeNote, v.UploadedBy, now); err != nil {
+		return err
+	}
+	if err = insertVersionStorage(ctx, tx, v); err != nil {
+		return err
+	}
+	if err = tx.Commit(); err != nil {
+		return err
 	}
 	v.CreatedAt, _ = time.Parse(time.RFC3339, now)
 	return nil
@@ -277,22 +299,26 @@ func (r *documentRepository) GetVersionMetadata(ctx context.Context, documentID 
 func (r *documentRepository) getVersion(ctx context.Context, documentID string, versionNumber int, withData bool) (*domain.DocumentVersion, error) {
 	dataColumn := "NULL"
 	if withData {
-		dataColumn = "file_data"
+		dataColumn = "v.file_data"
 	}
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, document_id, version_number, `+dataColumn+`, file_size, mime_type, checksum_sha256, change_note, uploaded_by, created_at
-		 FROM document_versions WHERE document_id = ? AND version_number = ?`, documentID, versionNumber)
+		`SELECT v.id, v.document_id, v.version_number, `+dataColumn+`, v.file_size, v.mime_type, v.checksum_sha256, v.change_note, v.uploaded_by, v.created_at, COALESCE(s.bucket,''), COALESCE(s.object_key,'')
+		 FROM document_versions v LEFT JOIN document_version_storage s ON s.version_id=v.id WHERE v.document_id = ? AND v.version_number = ?`, documentID, versionNumber)
 
 	var v domain.DocumentVersion
 	var createdAt string
 	var changeNote sql.NullString
+	var bucket, objectKey string
 	err := row.Scan(&v.ID, &v.DocumentID, &v.VersionNumber, &v.FileData, &v.FileSize,
-		&v.MimeType, &v.ChecksumSHA256, &changeNote, &v.UploadedBy, &createdAt)
+		&v.MimeType, &v.ChecksumSHA256, &changeNote, &v.UploadedBy, &createdAt, &bucket, &objectKey)
 	if err == sql.ErrNoRows {
 		return nil, domain.ErrVersionNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get document version: %w", err)
+	}
+	if bucket != "" {
+		v.Storage = &domain.ObjectLocation{Bucket: bucket, Key: objectKey}
 	}
 	v.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
 	if changeNote.Valid {
@@ -442,6 +468,9 @@ func (r *documentRepository) DeleteVersion(ctx context.Context, documentID strin
 		return domain.ErrLastVersion
 	} else if err != nil {
 		return fmt.Errorf("find remaining version: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO storage_cleanup_jobs(bucket,object_key) SELECT s.bucket,s.object_key FROM document_version_storage s JOIN document_versions v ON v.id=s.version_id WHERE v.document_id=? AND v.version_number=?`, documentID, versionNumber); err != nil {
+		return fmt.Errorf("queue version cleanup: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM document_versions WHERE document_id = ? AND version_number = ?`, documentID, versionNumber); err != nil {
 		return fmt.Errorf("delete version: %w", err)
