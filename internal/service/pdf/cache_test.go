@@ -179,3 +179,9 @@ func TestCacheNonCancellableKeepsSlot(t *testing.T) {
 	c.mu.Unlock()
 	close(gate)
 }
+
+func TestCacheDeadlineDoesNotReleaseActiveWorker(t *testing.T) {
+ c:=testCache(t,1,1,100);c.cfg.Timeout=30*time.Millisecond;gate:=make(chan struct{});start:=make(chan struct{});done:=make(chan error)
+ go func(){_,err:=c.Do(context.Background(),"uncancellable",func(_ context.Context,p string)error{close(start);<-gate;return os.WriteFile(p,[]byte("ok"),0600)});done<-err}();<-start
+ select{case err:=<-done:require.ErrorIs(t,err,ErrTimeout);require.Len(t,c.slots,1);close(gate);case <-time.After(200*time.Millisecond):close(gate);<-done;t.Fatal("deadline must finish the waiting request while the worker remains occupied")}
+}

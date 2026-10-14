@@ -91,3 +91,5 @@ func (s *Service) Prepare(ctx context.Context, source Source, id Identity, c dom
 		return s.watermark.Apply(ctx, name, out, c, text)
 	})
 }
+
+func (s *Service) Timeout() time.Duration { return s.cfg.Timeout }

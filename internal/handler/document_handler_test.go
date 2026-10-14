@@ -46,7 +46,7 @@ func setupDocumentTest(t *testing.T) (*echo.Echo, *service.AuthService, string) 
 
 	// Register document routes on auth group.
 	g := e.Group("/api/v1", authMW)
-	docHandler := NewDocumentHandler(docRepo, permRepo, audit)
+	docHandler := NewDocumentHandler(docRepo, permRepo, audit, repository.NewWatermarkRepository(db), nil)
 	docHandler.RegisterRoutes(g)
 
 	// Get admin token.

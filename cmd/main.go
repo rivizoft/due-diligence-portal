@@ -29,6 +29,7 @@ import (
 	"github.com/witfoo/due-diligence-portal/internal/middleware"
 	"github.com/witfoo/due-diligence-portal/internal/repository"
 	"github.com/witfoo/due-diligence-portal/internal/service"
+	pdfsvc "github.com/witfoo/due-diligence-portal/internal/service/pdf"
 	"github.com/witfoo/due-diligence-portal/pkg/envconfig"
 )
 
@@ -196,7 +197,19 @@ func main() {
 	userHandler.RegisterRoutes(adminGroup, passwordLimiter.Middleware())
 
 	// Documents (all handlers register on authGroup; internal role checks as needed).
-	docHandler := handler.NewDocumentHandler(docRepo, permRepo, auditLogger)
+	pdfConfig, err := pdfsvc.LoadConfig()
+	if err != nil {
+		log.Fatalf("[FATAL] PDF configuration: %v", err)
+	}
+	if err = pdfsvc.CheckRuntime(); err != nil {
+		log.Fatalf("[FATAL] %v", err)
+	}
+	pdfService, err := pdfsvc.NewService(pdfConfig, nil, pdfsvc.NewPoppler())
+	if err != nil {
+		log.Fatalf("[FATAL] PDF service: %v", err)
+	}
+	defer pdfService.Close()
+	docHandler := handler.NewDocumentHandler(docRepo, permRepo, auditLogger, wmRepo, pdfService)
 	docHandler.RegisterRoutes(authGroup)
 
 	// Categories.

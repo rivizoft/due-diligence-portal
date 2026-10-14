@@ -19,6 +19,7 @@ type cacheEntry struct {
 	cached    bool
 }
 type flight struct {
+	ctx     context.Context
 	done    chan struct{}
 	cancel  context.CancelFunc
 	waiters int
@@ -136,7 +137,7 @@ func (c *Cache) do(ctx context.Context, key string, build func(context.Context, 
 			return Artifact{}, ErrBusy
 		}
 		jobctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), c.cfg.Timeout)
-		j = &flight{done: make(chan struct{}), cancel: cancel}
+		j = &flight{done: make(chan struct{}), cancel: cancel, ctx: jobctx}
 		c.jobs[key] = j
 		c.wg.Add(1)
 		transferred = true
@@ -148,6 +149,17 @@ func (c *Cache) do(ctx context.Context, key string, build func(context.Context, 
 	case <-ctx.Done():
 		c.leave(key, j)
 		return Artifact{}, ctx.Err()
+	case <-j.ctx.Done():
+		// A completed job cancels its context too; prefer its published result.
+		select {
+		case <-j.done:
+		default:
+			c.leave(key, j)
+			if j.ctx.Err() == context.DeadlineExceeded {
+				return Artifact{}, ErrTimeout
+			}
+			return Artifact{}, j.ctx.Err()
+		}
 	case <-j.done:
 	}
 	c.mu.Lock()

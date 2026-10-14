@@ -14,6 +14,7 @@ import (
 	"github.com/witfoo/due-diligence-portal/internal/domain"
 	"github.com/witfoo/due-diligence-portal/internal/middleware"
 	"github.com/witfoo/due-diligence-portal/internal/repository"
+	pdfsvc "github.com/witfoo/due-diligence-portal/internal/service/pdf"
 	"github.com/witfoo/due-diligence-portal/pkg/envconfig"
 	"github.com/witfoo/due-diligence-portal/pkg/response"
 	"github.com/witfoo/due-diligence-portal/pkg/sanitize"
@@ -28,15 +29,17 @@ type DocumentHandler struct {
 	permRepo      repository.PermissionRepository
 	audit         *middleware.AuditLogger
 	maxUploadSize int64
+	wmRepo        repository.WatermarkRepository
+	pdfSvc        *pdfsvc.Service
 }
 
 // NewDocumentHandler creates a new DocumentHandler.
-func NewDocumentHandler(docRepo repository.DocumentRepository, permRepo repository.PermissionRepository, audit *middleware.AuditLogger) *DocumentHandler {
+func NewDocumentHandler(docRepo repository.DocumentRepository, permRepo repository.PermissionRepository, audit *middleware.AuditLogger, wmRepo repository.WatermarkRepository, pdfSvc *pdfsvc.Service) *DocumentHandler {
 	maxSize := envconfig.GetEnvInt64("DD_MAX_UPLOAD_SIZE", defaultMaxUploadSize)
 	if maxSize <= 0 || maxSize > absoluteMaxUploadSize {
 		maxSize = defaultMaxUploadSize
 	}
-	return &DocumentHandler{docRepo: docRepo, permRepo: permRepo, audit: audit, maxUploadSize: maxSize}
+	return &DocumentHandler{docRepo: docRepo, permRepo: permRepo, audit: audit, maxUploadSize: maxSize, wmRepo: wmRepo, pdfSvc: pdfSvc}
 }
 
 // RegisterRoutes registers document routes on a pre-authenticated group.
@@ -52,6 +55,12 @@ func (h *DocumentHandler) RegisterRoutes(g *echo.Group) {
 	g.POST("/documents/:id/versions", h.UploadVersion, middleware.RequireRole(domain.RoleAdmin, domain.RoleCompanyMember), uploadLimit)
 	g.GET("/documents/:id/versions/:version", h.DownloadVersion)
 	g.GET("/documents/:id/download", h.Download)
+	g.GET("/documents/:id/preview", h.Preview)
+	g.GET("/documents/:id/preview-info", h.PreviewInfo)
+	g.GET("/documents/:id/preview-pages/:page", h.PreviewPage)
+	g.GET("/documents/:id/versions/:version/preview", h.Preview)
+	g.GET("/documents/:id/versions/:version/preview-info", h.PreviewInfo)
+	g.GET("/documents/:id/versions/:version/preview-pages/:page", h.PreviewPage)
 	g.POST("/documents/search", h.Search)
 }
 
@@ -60,6 +69,9 @@ func (h *DocumentHandler) RegisterRoutes(g *echo.Group) {
 // hold a matching grant on the document OR on its category. This is the single
 // authorization helper for every per-document read path.
 func (h *DocumentHandler) canAccessDocument(c echo.Context, doc *domain.Document, level string) (bool, error) {
+	if doc.IsArchived {
+		return false, nil
+	}
 	return documentAccessAllowed(c.Request().Context(), h.permRepo,
 		middleware.GetUserID(c), middleware.GetUserRole(c), doc, level)
 }
@@ -106,6 +118,12 @@ func (h *DocumentHandler) List(c echo.Context) error {
 		total = len(filtered)
 	}
 
+	for _, doc := range docs {
+		doc.CanDownload, err = h.canAccessDocument(c, doc, domain.AccessDownload)
+		if err != nil {
+			return response.InternalError(c)
+		}
+	}
 	return response.OKWithMeta(c, "Documents retrieved", docs, &response.Meta{
 		Count:    len(docs),
 		Total:    total,
@@ -139,6 +157,10 @@ func (h *DocumentHandler) Get(c echo.Context) error {
 		return response.InternalError(c)
 	}
 
+	doc.CanDownload, err = h.canAccessDocument(c, doc, domain.AccessDownload)
+	if err != nil {
+		return response.InternalError(c)
+	}
 	return response.OK(c, "Document retrieved", map[string]any{
 		"document": doc,
 		"versions": versions,
@@ -363,78 +385,10 @@ func (h *DocumentHandler) UploadVersion(c echo.Context) error {
 }
 
 // DownloadVersion handles GET /documents/:id/versions/:version.
-func (h *DocumentHandler) DownloadVersion(c echo.Context) error {
-	docID := c.Param("id")
-	versionStr := c.Param("version")
-	versionNum, err := strconv.Atoi(versionStr)
-	if err != nil {
-		return response.BadRequest(c, "invalid version number")
-	}
+func (h *DocumentHandler) DownloadVersion(c echo.Context) error { return h.deliverFile(c, false) }
 
-	doc, err := h.docRepo.GetByID(c.Request().Context(), docID)
-	if err != nil {
-		if err == domain.ErrDocumentNotFound {
-			return response.NotFound(c, "document not found")
-		}
-		return response.InternalError(c)
-	}
-
-	if ok, err := h.canAccessDocument(c, doc, domain.AccessDownload); err != nil {
-		return response.InternalError(c)
-	} else if !ok {
-		return response.NotFound(c, "document not found")
-	}
-
-	version, err := h.docRepo.GetVersion(c.Request().Context(), docID, versionNum)
-	if err != nil {
-		if err == domain.ErrVersionNotFound {
-			return response.NotFound(c, "version not found")
-		}
-		return response.InternalError(c)
-	}
-
-	h.audit.LogFromContext(c, domain.AuditDocumentDownloaded, "document", docID, doc.Name,
-		fmt.Sprintf("version=%d", versionNum))
-
-	c.Response().Header().Set("Content-Type", version.MimeType)
-	c.Response().Header().Set("Content-Disposition",
-		fmt.Sprintf("attachment; filename=%q", sanitize.FileName(doc.Name)))
-	return c.Blob(http.StatusOK, version.MimeType, version.FileData)
-}
-
-// Download handles GET /documents/:id/download (current version).
-func (h *DocumentHandler) Download(c echo.Context) error {
-	docID := c.Param("id")
-
-	doc, err := h.docRepo.GetByID(c.Request().Context(), docID)
-	if err != nil {
-		if err == domain.ErrDocumentNotFound {
-			return response.NotFound(c, "document not found")
-		}
-		return response.InternalError(c)
-	}
-
-	if ok, err := h.canAccessDocument(c, doc, domain.AccessDownload); err != nil {
-		return response.InternalError(c)
-	} else if !ok {
-		return response.NotFound(c, "document not found")
-	}
-
-	version, err := h.docRepo.GetVersion(c.Request().Context(), docID, doc.CurrentVersion)
-	if err != nil {
-		if err == domain.ErrVersionNotFound {
-			return response.NotFound(c, "version not found")
-		}
-		return response.InternalError(c)
-	}
-
-	h.audit.LogFromContext(c, domain.AuditDocumentDownloaded, "document", docID, doc.Name, "")
-
-	c.Response().Header().Set("Content-Type", version.MimeType)
-	c.Response().Header().Set("Content-Disposition",
-		fmt.Sprintf("attachment; filename=%q", sanitize.FileName(doc.Name)))
-	return c.Blob(http.StatusOK, version.MimeType, version.FileData)
-}
+// Download delivers the current original or prepared version, according to settings.
+func (h *DocumentHandler) Download(c echo.Context) error { return h.deliverFile(c, false) }
 
 type searchRequest struct {
 	Query string `json:"query"`
@@ -473,6 +427,12 @@ func (h *DocumentHandler) Search(c echo.Context) error {
 		total = len(filtered)
 	}
 
+	for _, doc := range docs {
+		doc.CanDownload, err = h.canAccessDocument(c, doc, domain.AccessDownload)
+		if err != nil {
+			return response.InternalError(c)
+		}
+	}
 	return response.OKWithMeta(c, "Search results", docs, &response.Meta{
 		Count:    len(docs),
 		Total:    total,

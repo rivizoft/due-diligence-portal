@@ -17,6 +17,8 @@ type Document struct {
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 
+	CanDownload bool `json:"can_download"`
+
 	// Joined fields (not stored directly).
 	CategoryName string `json:"category_name,omitempty"`
 	UploaderName string `json:"uploader_name,omitempty"`

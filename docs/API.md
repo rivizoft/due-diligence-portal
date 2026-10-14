@@ -160,3 +160,33 @@ are rejected, so users sign in once more after upgrading.
 | GET | `/health` | Basic health check |
 | GET | `/ready` | Readiness (SQLite ping) |
 | GET | `/version` | Build version info |
+
+### PDF preview and watermarks
+
+Current version routes: `GET /documents/:id/preview` (PDF, download permission),
+`GET /documents/:id/preview-info` (view permission), and
+`GET /documents/:id/preview-pages/:page` (view permission, PNG).
+Historical versions use `/documents/:id/versions/:version/preview`,
+`.../preview-info` and `.../preview-pages/:page`. Page numbers start at 1.
+
+Preview info data contains `mode` (`pdf` or `images`), `version_number`, `name`,
+and `pages` (`width`, `height` in points; empty in PDF mode). Clients pin the
+returned version before retrieving content. Document list/detail/search data
+includes `can_download`, computed from current server permissions.
+
+All PDF byte routes require download permission; hiding client controls is not
+an authorization check. View-only users receive PNG pages, never a PDF fallback.
+In the existing default `DD_INVESTOR_ACCESS=all` mode, all investors have download
+access; use `DD_INVESTOR_ACCESS=granted` and view grants for view-only behavior.
+
+Enabled watermarks apply to every PDF page on authorized delivery and are
+personalized with JWT identity, document name and UTC date `YYYY-MM-DD`.
+Original stored versions are untouched. Other file types are unchanged.
+Private outputs use `Cache-Control: private, no-store`; send JWT in the
+Authorization header, never in a URL. Access is rechecked before delivery,
+including after preparation and when serving cached artifacts.
+
+Preparation errors use the standard JSON error envelope: 413 (input cap),
+422 (damaged/encrypted/unsupported PDF), 503 (queue full, `Retry-After: 3`),
+504 (preparation timeout). Error paths never return an unmarked PDF when
+watermarking is enabled. Existing 404 conventions conceal inaccessible versions.
