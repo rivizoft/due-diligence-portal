@@ -92,7 +92,12 @@ function redirectToLogin(): void {
  * Attempt to obtain a fresh access token using the stored refresh token.
  * Returns true on success (the new access token is persisted).
  */
-async function tryRefresh(): Promise<boolean> {
+let refreshPromise: Promise<boolean> | null = null;
+function tryRefresh(): Promise<boolean> {
+ if (!refreshPromise) refreshPromise = performRefresh().finally(() => { refreshPromise = null; });
+ return refreshPromise;
+}
+async function performRefresh(): Promise<boolean> {
 	const refresh = getRefreshToken();
 	if (!refresh) return false;
 	try {
@@ -171,40 +176,29 @@ async function request<T>(
  * the Authorization header), reads the response as a Blob, and triggers a browser
  * download — a plain <a href> cannot attach the bearer token and would 401.
  */
-async function download(path: string, fallbackName = 'download', isRetry = false): Promise<void> {
-	if (typeof window === 'undefined') return;
-	const token = getAuthToken();
-	const resp = await fetch(`${API_BASE}${path}`, {
-		headers: token ? { Authorization: `Bearer ${token}` } : {}
-	});
-
-	if (resp.status === 401) {
-		if (!isRetry && (await tryRefresh())) {
-			return download(path, fallbackName, true);
-		}
-		clearTokens();
-		redirectToLogin();
-		throw new ApiError(401, 'Unauthorized', null);
-	}
-	if (!resp.ok) {
-		throw new ApiError(resp.status, resp.statusText, null);
-	}
-
-	// Prefer the server-provided filename from Content-Disposition.
-	let name = fallbackName;
-	const cd = resp.headers.get('Content-Disposition');
-	const match = cd?.match(/filename="?([^"]+)"?/);
-	if (match) name = match[1];
-
-	const blob = await resp.blob();
-	const objectUrl = URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = objectUrl;
-	a.download = name;
-	document.body.appendChild(a);
-	a.click();
-	a.remove();
-	URL.revokeObjectURL(objectUrl);
+export interface BinaryResponse { blob: Blob; filename: string | null }
+async function binary(path: string, options: { signal?: AbortSignal } = {}, isRetry = false): Promise<BinaryResponse> {
+ const token = getAuthToken();
+ const resp = await fetch(`${API_BASE}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, signal: options.signal });
+ if (resp.status === 401) {
+  if (!isRetry && await tryRefresh()) return binary(path, options, true);
+  clearTokens(); redirectToLogin(); throw new ApiError(401, 'Unauthorized', null);
+ }
+ if (!resp.ok) throw new ApiError(resp.status, resp.statusText, await resp.json().catch(() => null));
+ const cd = resp.headers.get('Content-Disposition');
+ const encoded = cd?.match(/filename\*=UTF-8''([^;]+)/i);
+ let filename = cd?.match(/filename="([^"\r\n]*)"|filename=([^;\r\n]+)/i)?.slice(1).find(Boolean) ?? null;
+ if (encoded) { try { filename = decodeURIComponent(encoded[1]); } catch { /* Use ordinary filename. */ } }
+ return { blob: await resp.blob(), filename };
+}
+async function download(path: string, fallbackName = 'download'): Promise<void> {
+ if (typeof window === 'undefined') return;
+ const { blob, filename } = await binary(path);
+ const objectUrl = URL.createObjectURL(blob);
+ const a = document.createElement('a'); a.href = objectUrl; a.download = filename ?? fallbackName;
+ document.body.appendChild(a); a.click(); a.remove();
+ // Allow the browser to start consuming the URL before releasing it.
+ setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }
 
 /** Read authenticated binary content for in-app preview without starting a download. */
@@ -222,7 +216,8 @@ async function bytes(path: string, isRetry = false): Promise<ArrayBuffer> {
 }
 
 export const api = {
-	get: <T>(path: string) => request<T>('GET', path),
+ binary,
+	get: <T>(path: string, options: RequestInit = {}) => request<T>('GET', path, undefined, options),
 	post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
 	put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
 	patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),

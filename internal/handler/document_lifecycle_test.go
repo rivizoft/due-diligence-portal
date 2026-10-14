@@ -86,34 +86,28 @@ func TestDocumentLifecycle_ViewOnly(t *testing.T) {
 					AccessLevel: domain.AccessView, GrantedBy: adminClaims.UserID,
 				}))
 				path := "/documents/" + id
-				for _, endpoint := range []string{path, path + "/preview", path + "/versions/2/preview"} {
+				for _, endpoint := range []string{path} {
 					rec := documentRequest(e, investor, "GET", endpoint)
 					require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-					if endpoint != path {
-						require.Equal(t, "application/pdf", rec.Header().Get("Content-Type"))
-						require.Contains(t, rec.Header().Get("Content-Disposition"), "inline")
-						require.Equal(t, "%PDF-1.7\npreview", rec.Body.String())
-					} else {
-						var envelope struct {
-							Data struct {
-								Permissions struct {
-									Download bool `json:"can_download"`
-									Manage   bool `json:"can_manage"`
-								} `json:"permissions"`
-							} `json:"data"`
-						}
-						require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &envelope))
-						require.False(t, envelope.Data.Permissions.Download)
-						require.False(t, envelope.Data.Permissions.Manage)
+					var envelope struct {
+						Data struct {
+							Permissions struct {
+								Download bool `json:"can_download"`
+								Manage   bool `json:"can_manage"`
+							} `json:"permissions"`
+						} `json:"data"`
 					}
+					require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &envelope))
+					require.False(t, envelope.Data.Permissions.Download)
+					require.False(t, envelope.Data.Permissions.Manage)
 				}
-				for _, suffix := range []string{"/download", "/versions/2"} {
+				for _, suffix := range []string{"/download", "/versions/2", "/preview", "/versions/2/preview"} {
 					require.Equal(t, http.StatusNotFound, documentRequest(e, investor, "GET", path+suffix).Code)
 				}
 				for _, endpoint := range []string{path, path + "/versions/2"} {
 					require.Equal(t, http.StatusForbidden, documentRequest(e, investor, "DELETE", endpoint).Code)
 				}
-				require.Equal(t, http.StatusBadRequest, documentRequest(e, investor, "GET", path+"/versions/1/preview").Code)
+				require.Equal(t, http.StatusNotFound, documentRequest(e, investor, "GET", path+"/versions/1/preview").Code)
 				require.NoError(t, perms.Revoke(context.Background(), "view-only"))
 				if mode == "granted" {
 					require.Equal(t, http.StatusNotFound, documentRequest(e, investor, "GET", path+"/preview").Code)

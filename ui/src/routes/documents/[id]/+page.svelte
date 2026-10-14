@@ -2,7 +2,6 @@
 	import type { Document, DocumentVersion } from '$types/api';
 	import { api, apiErrorMessage } from '$api/client';
  import { goto } from '$app/navigation';
- import PdfViewer from '$components/PdfViewer.svelte';
 	import { page } from '$app/state';
 
 	let doc = $state<Document | null>(null);
@@ -10,6 +9,7 @@
 	let loading = $state(true);
 	let error = $state('');
 	let downloadError = $state('');
+ let downloading = $state<Record<string, boolean>>({});
  let canDownload = $state(false);
  let canManage = $state(false);
  let busy = $state(false);
@@ -41,23 +41,14 @@
 		loading = false;
 	}
 
-	async function downloadCurrent() {
-		downloadError = '';
-		try {
-			await api.download(`/documents/${docId}/download`, doc?.name ?? 'document');
-		} catch {
-			downloadError = 'Download failed.';
-		}
-	}
-
-	async function downloadVersion(v: number) {
-		downloadError = '';
-		try {
-			await api.download(`/documents/${docId}/versions/${v}`, `${doc?.name ?? 'document'}-v${v}`);
-		} catch {
-			downloadError = 'Download failed.';
-		}
-	}
+ async function downloadCurrent() { await download('current', `/documents/${docId}/download`, doc?.name ?? 'document'); }
+ async function downloadVersion(v: number) { await download(String(v), `/documents/${docId}/versions/${v}`, `${doc?.name ?? 'document'}-v${v}`); }
+ async function download(key: string, path: string, name: string) {
+  if (downloading[key]) return; downloading[key] = true; downloadError = '';
+  try { await api.download(path, name); }
+  catch (err) { downloadError = apiErrorMessage(err, 'Download failed. Use Download to retry.'); }
+  finally { downloading[key] = false; }
+ }
 
  async function uploadVersion(event: SubmitEvent) {
   event.preventDefault();
@@ -129,7 +120,7 @@
 		<header class="doc-header">
 			<h1>{doc.name}</h1>
 			<div class="header-actions">
-    {#if canDownload}<button class="btn-primary" onclick={downloadCurrent} disabled={busy}>Download</button>{/if}
+    {#if canDownload}<button class="btn-primary" onclick={downloadCurrent} disabled={busy || downloading.current} aria-busy={downloading.current ?? false}>{#if downloading.current}<span class="spinner" aria-hidden="true"></span>Preparing…{:else}Download{/if}</button>{/if}
     {#if canManage}<button class="btn-small danger" onclick={deleteDocument} disabled={busy}>Delete document</button>{/if}
    </div>
 		</header>
@@ -150,7 +141,7 @@
 
   {#if previewVersion?.mime_type === 'application/pdf'}
    <h2>PDF preview — v{selectedVersion}</h2>
-   <PdfViewer path={`/documents/${docId}/versions/${selectedVersion}/preview`} />
+   <a class="btn-small" href="/documents/{docId}/preview?version={selectedVersion}" target="_blank" rel="noopener">Open PDF</a>
   {:else}
    <p class="description">Preview is available for PDF files only.</p>
   {/if}
@@ -181,7 +172,7 @@
 							<td>{formatDate(v.created_at)}</td>
 							<td class="version-actions">
         {#if v.mime_type === 'application/pdf'}<button class="btn-small" onclick={() => selectedVersion = v.version_number} disabled={busy}>View</button>{/if}
-        {#if canDownload}<button class="btn-small" onclick={() => downloadVersion(v.version_number)} disabled={busy}>Download</button>{/if}
+        {#if canDownload}<button class="btn-small" onclick={() => downloadVersion(v.version_number)} disabled={busy || downloading[String(v.version_number)]} aria-busy={downloading[String(v.version_number)] ?? false}>{#if downloading[String(v.version_number)]}<span class="spinner" aria-hidden="true"></span>Preparing…{:else}Download{/if}</button>{/if}
         {#if canManage}<button class="btn-small danger" onclick={() => deleteVersion(v.version_number)} disabled={busy || versions.length <= 1} title={versions.length <= 1 ? 'The last version cannot be deleted. Delete the document instead.' : 'Delete this version'}>Delete version</button>{/if}
        </td>
 						</tr>
@@ -193,6 +184,10 @@
 </div>
 
 <style>
+ .spinner {display:inline-block;width:.75rem;height:.75rem;margin-right:.4rem;border:2px solid var(--dd-border);border-top-color:var(--dd-primary);border-radius:50%;animation:spin .8s linear infinite;}
+ @keyframes spin {to{transform:rotate(360deg);}}
+ @media(prefers-reduced-motion:reduce){.spinner{animation:none;}}
+
  .header-actions, .version-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
  .danger { color: var(--dd-error, #da1e28); }
  .version-form { display: flex; flex-direction: column; gap: 1rem; padding: 1rem; border: 1px solid var(--dd-border); }

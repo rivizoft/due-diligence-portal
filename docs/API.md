@@ -35,15 +35,16 @@ All responses use the standard envelope:
 | POST | `/documents/:id/versions` | Yes | Admin, Company | Upload new version |
 | GET | `/documents/:id/versions/:v` | Yes | All | Download specific version (download permission) |
 | DELETE | `/documents/:id/versions/:v` | Yes | Admin, Company | Delete version (last version cannot be removed) |
-| GET | `/documents/:id/preview` | Yes | All | Preview current PDF (view permission) |
-| GET | `/documents/:id/versions/:v/preview` | Yes | All | Preview specific PDF version (view permission) |
+| GET | `/documents/:id/preview` | Yes | All | Preview current PDF bytes (download permission) |
+| GET | `/documents/:id/versions/:v/preview` | Yes | All | Preview specific PDF version bytes (download permission) |
 | GET | `/documents/:id/download` | Yes | All | Download current version (download permission) |
 | POST | `/documents/search` | Yes | All | Full-text search (`{"query":"..."}`) |
 
 Document list/search entries include `can_download`. Detail responses include
 `permissions: {can_download, can_manage}` alongside `document` and `versions`.
 PDF preview returns authenticated `application/pdf` bytes with inline disposition
-and `Cache-Control: no-store`; non-PDF previews return 400. Missing/inaccessible
+and `Cache-Control: private, no-store` only with download permission; non-PDF previews return 422.
+View-only clients use preview-info and preview-pages to receive PNG pages. Missing/inaccessible
 or archived documents return 404. Investors cannot upload or delete versions,
 regardless of their grant level. Deleting the current version switches to the
 highest remaining version and updates MIME type and size atomically. Version
@@ -173,3 +174,34 @@ are rejected, so users sign in once more after upgrading.
 | GET | `/health` | Basic health check |
 | GET | `/ready` | Readiness (SQLite ping) |
 | GET | `/version` | Build version info |
+
+### PDF preview and watermarks
+
+Current version routes: `GET /documents/:id/preview` (PDF, download permission),
+`GET /documents/:id/preview-info` (view permission), and
+`GET /documents/:id/preview-pages/:page` (view permission, PNG).
+Historical versions use `/documents/:id/versions/:version/preview`,
+`.../preview-info` and `.../preview-pages/:page`. Page numbers start at 1.
+
+Preview info data contains `mode` (`pdf` or `images`), `version_number`, `name`,
+and `pages` (`width`, `height` in points; empty in PDF mode). Clients pin the
+returned version before retrieving content. Document list/detail/search data
+includes `can_download`, computed from current server permissions.
+
+All PDF byte routes require download permission; hiding client controls is not
+an authorization check. View-only users receive PNG pages, never a PDF fallback.
+In `DD_INVESTOR_ACCESS=all`, ungranted investors have download access but explicit
+view-only grants restrict it. Use `DD_INVESTOR_ACCESS=granted` to require grants
+for all document access.
+
+Enabled watermarks apply to every PDF page on authorized delivery and are
+personalized with JWT identity, document name and UTC date `YYYY-MM-DD`.
+Original stored versions are untouched. Other file types are unchanged.
+Private outputs use `Cache-Control: private, no-store`; send JWT in the
+Authorization header, never in a URL. Access is rechecked before delivery,
+including after preparation and when serving cached artifacts.
+
+Preparation errors use the standard JSON error envelope: 413 (input cap),
+422 (damaged/encrypted/unsupported PDF), 503 (queue full, `Retry-After: 3`),
+504 (preparation timeout). Error paths never return an unmarked PDF when
+watermarking is enabled. Existing 404 conventions conceal inaccessible versions.

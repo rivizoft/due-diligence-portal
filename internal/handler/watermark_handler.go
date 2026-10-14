@@ -2,6 +2,11 @@ package handler
 
 import (
 	"github.com/labstack/echo/v4"
+	pdfsvc "github.com/witfoo/due-diligence-portal/internal/service/pdf"
+	"math"
+	"regexp"
+	"strings"
+	"time"
 
 	"github.com/witfoo/due-diligence-portal/internal/domain"
 	"github.com/witfoo/due-diligence-portal/internal/middleware"
@@ -39,7 +44,7 @@ func (h *WatermarkHandler) GetConfig(c echo.Context) error {
 
 type updateWatermarkRequest struct {
 	Enabled      *bool    `json:"enabled"`
-	TextTemplate string   `json:"text_template"`
+	TextTemplate *string  `json:"text_template"`
 	Position     string   `json:"position"`
 	Opacity      *float64 `json:"opacity"`
 	FontSize     *int     `json:"font_size"`
@@ -68,8 +73,8 @@ func (h *WatermarkHandler) UpdateConfig(c echo.Context) error {
 	if req.Enabled != nil {
 		config.Enabled = *req.Enabled
 	}
-	if req.TextTemplate != "" {
-		config.TextTemplate = req.TextTemplate
+	if req.TextTemplate != nil {
+		config.TextTemplate = *req.TextTemplate
 	}
 	if req.Position != "" {
 		if !validPositions[req.Position] {
@@ -78,7 +83,7 @@ func (h *WatermarkHandler) UpdateConfig(c echo.Context) error {
 		config.Position = req.Position
 	}
 	if req.Opacity != nil {
-		if *req.Opacity < 0 || *req.Opacity > 1 {
+		if math.IsNaN(*req.Opacity) || math.IsInf(*req.Opacity, 0) || *req.Opacity < 0 || *req.Opacity > 1 {
 			return response.BadRequest(c, "opacity must be between 0 and 1")
 		}
 		config.Opacity = *req.Opacity
@@ -93,6 +98,18 @@ func (h *WatermarkHandler) UpdateConfig(c echo.Context) error {
 		config.Color = req.Color
 	}
 
+	if len(config.TextTemplate) > 2048 {
+		return response.BadRequest(c, "text_template must be at most 2048 bytes")
+	}
+	if config.Enabled && strings.TrimSpace(config.TextTemplate) == "" {
+		return response.BadRequest(c, "enabled watermark requires a text template")
+	}
+	if _, err := pdfsvc.RenderText(config.TextTemplate, pdfsvc.Identity{}, "", time.Now()); err != nil {
+		return response.BadRequest(c, err.Error())
+	}
+	if !regexp.MustCompile(`^#[0-9a-fA-F]{6}$`).MatchString(config.Color) {
+		return response.BadRequest(c, "color must be a six-digit hex color")
+	}
 	if err := h.wmRepo.UpsertConfig(c.Request().Context(), config); err != nil {
 		return response.InternalError(c)
 	}

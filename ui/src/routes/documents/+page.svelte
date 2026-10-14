@@ -6,6 +6,7 @@
  let canManage = $derived(authStore.isAdmin || authStore.isCompanyMember);
  let deleting = $state('');
  let actionError = $state('');
+ let downloading = $state<Record<string, boolean>>({});
 
 	const PAGE_SIZE = 50;
 
@@ -94,13 +95,12 @@
 		loading = false;
 	}
 
-	async function downloadDoc(id: string, name: string) {
-		try {
-			await api.download(`/documents/${id}/download`, name);
-		} catch {
-			actionError = 'Download failed.';
-		}
-	}
+ async function downloadDoc(id: string, name: string) {
+  if (downloading[id]) return; downloading[id] = true; actionError = '';
+  try { await api.download(`/documents/${id}/download`, name); }
+  catch (err) { actionError = apiErrorMessage(err, 'Download failed. Use Download to retry.'); }
+  finally { downloading[id] = false; }
+ }
 
  async function deleteDoc(doc: Document) {
   if (deleting || !canManage || !confirm(`Delete "${doc.name}" and remove access to all its versions?`)) return;
@@ -197,7 +197,8 @@
 						<td>{formatDate(doc.created_at)}</td>
 						<td>
 							<a class="btn-small" href="/documents/{doc.id}">View</a>
-       {#if doc.can_download}<button class="btn-small" onclick={() => downloadDoc(doc.id, doc.name)}>Download</button>{/if}
+ {#if doc.mime_type === 'application/pdf'}<a class="btn-small" href="/documents/{doc.id}/preview" target="_blank" rel="noopener">Open PDF</a>{/if}
+       {#if doc.can_download}<button class="btn-small" onclick={() => downloadDoc(doc.id, doc.name)} disabled={downloading[doc.id]} aria-busy={downloading[doc.id] ?? false}>{#if downloading[doc.id]}<span class="spinner" aria-hidden="true"></span>Preparing…{:else}Download{/if}</button>{/if}
        {#if canManage}<button class="btn-small" onclick={() => deleteDoc(doc)} disabled={!!deleting}>Delete document</button>{/if}
 						</td>
 					</tr>
@@ -215,6 +216,10 @@
 </div>
 
 <style>
+ .spinner {display:inline-block;width:.75rem;height:.75rem;margin-right:.4rem;border:2px solid var(--dd-border);border-top-color:var(--dd-primary);border-radius:50%;animation:spin .8s linear infinite;}
+ @keyframes spin {to{transform:rotate(360deg);}}
+ @media(prefers-reduced-motion:reduce){.spinner{animation:none;}}
+
 	.pagination {
 		display: flex;
 		align-items: center;

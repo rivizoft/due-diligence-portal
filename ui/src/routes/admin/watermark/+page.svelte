@@ -14,6 +14,7 @@
 	let loading = $state(true);
 	let saving = $state(false);
 	let message = $state('');
+ let previewText = $derived(config?.text_template.replace(/\{\{(user_email|user_name|date|document_name)\}\}/g, (_, key: string) => ({ user_email: 'investor@example.com', user_name: 'Alex Investor', date: new Date().toISOString().slice(0, 10), document_name: 'Report.pdf' })[key as 'user_email' | 'user_name' | 'date' | 'document_name']) ?? '');
 
 	async function loadConfig() {
 		try {
@@ -52,7 +53,7 @@
 </script>
 
 <h1>Watermark Settings</h1>
-<p class="subtitle">Configure dynamic watermarks applied to downloaded documents.</p>
+<p class="subtitle">Configure personal watermarks applied to PDF viewing and downloads. Originals are preserved.</p>
 
 {#if loading}
 	<p class="loading">Loading...</p>
@@ -111,9 +112,12 @@
 		</div>
 	</section>
 
-	<div class="preview" style="opacity: {config.opacity}; color: {config.color}; font-size: {config.font_size}px;">
-		{config.text_template.replace('{{user_email}}', 'investor@example.com').replace('{{date}}', new Date().toLocaleDateString())}
-	</div>
+	<div class="preview" aria-label="Illustrative watermark preview">
+  <div class="sample-content"><strong>Sample document</strong><p>Confidential information</p><hr /><hr /><hr /><hr /></div>
+  {#if config.enabled}<div class="sample-watermark {config.position}" style:opacity={config.opacity} style:color={config.color} style:font-size={`${config.font_size * 0.6}px`}>{previewText}</div>{/if}
+ </div>
+ <p class="hint">Illustrative preview. PDF font and layout may differ. Dates use UTC (YYYY-MM-DD).</p>
+ <p class="hint">View-only users receive page images with the watermark. Screenshots remain possible. Applying a watermark can invalidate a PDF digital signature.</p>
 
 	<div class="actions">
 		<button class="btn-primary" onclick={saveConfig} disabled={saving}>
@@ -153,11 +157,15 @@
 		color: var(--dd-text); font-family: monospace; font-size: 0.8125rem;
 	}
 
-	.preview {
-		padding: 2rem; margin-bottom: 2rem; text-align: center;
-		background: var(--dd-surface); border: 1px dashed var(--dd-border);
-		font-style: italic; transform: rotate(-15deg); max-width: 400px; margin-left: auto; margin-right: auto;
-	}
+
+ .preview {position:relative;aspect-ratio:595/842;max-width:320px;margin:1.5rem auto;background:#fff;border:1px solid var(--dd-border);overflow:hidden;color:#555;}
+ .sample-content {padding:2rem;font-size:.75rem;}
+ .sample-content hr{margin:1.5rem 0;border:0;border-top:1px solid #ddd;}
+ .sample-watermark {position:absolute;left:5%;right:5%;text-align:center;overflow-wrap:anywhere;line-height:1.3;}
+ .sample-watermark.center,.sample-watermark.diagonal{top:50%;transform:translateY(-50%);}
+ .sample-watermark.diagonal{transform:translateY(-50%) rotate(-45deg);}
+ .sample-watermark.top{top:3%;}
+ .sample-watermark.bottom{bottom:3%;}
 
 	.actions { display: flex; gap: 1rem; }
 	.btn-primary { padding: 0.625rem 1.25rem; background: var(--dd-primary); color: #fff; border: none; cursor: pointer; }

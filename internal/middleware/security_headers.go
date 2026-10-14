@@ -41,6 +41,7 @@ func SecurityHeaders() echo.MiddlewareFunc {
 					"font-src 'self' blob:; "+
 					"worker-src 'self'; "+
 					"connect-src 'self' https://cloudflareinsights.com; "+
+					"frame-src 'self' blob:; "+
 					"frame-ancestors 'none'; "+
 					"base-uri 'self'; "+
 					"form-action 'self'")

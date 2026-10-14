@@ -49,15 +49,11 @@ test('document lifecycle, PDF preview and investor View Only', async ({ page, re
  await page.getByRole('link', { name: `PDF ${suffix}`, exact: true }).click();
  await expect(page).toHaveURL(/\/documents\/[a-f0-9]+$/);
  const documentPath = new URL(page.url()).pathname;
- await expect(page.getByRole('region', { name: 'PDF preview' }).locator('canvas')).toBeVisible();
- await expect(page.getByRole('region', { name: 'PDF preview' })).toHaveAttribute('aria-busy', 'false');
- // Non-white pixels prove a page was rendered, rather than merely creating a blank canvas.
- expect(await page.locator('canvas').evaluate(canvas => {
-  const node = canvas as HTMLCanvasElement;
-  const data = node.getContext('2d')!.getImageData(0, 0, node.width, node.height).data;
-  for (let i = 0; i < data.length; i += 4) if (data[i] < 100 && data[i + 1] < 100 && data[i + 2] < 100 && data[i + 3] > 0) return true;
-  return false;
- })).toBeTruthy();
+ const staffTabPromise = page.context().waitForEvent('page');
+ await page.getByRole('link', { name: 'Open PDF', exact: true }).click();
+ const staffPreview = await staffTabPromise;
+ await expect(staffPreview.locator('iframe[title="PDF preview"]')).toBeVisible();
+ await staffPreview.close();
  await page.getByLabel('Updated file').setInputFiles({ name: 'updated.pdf', mimeType: 'application/pdf', buffer: pdfBytes() });
  await page.getByLabel('Change note').fill('Second version');
  await page.getByRole('button', { name: 'Upload new version', exact: true }).click();
@@ -72,13 +68,20 @@ test('document lifecycle, PDF preview and investor View Only', async ({ page, re
  expect((await request.post('/api/v1/nda/exemptions', { headers, multipart: { user_id: userID, reason: 'Isolated browser test' } })).ok()).toBeTruthy();
  expect((await request.post('/api/v1/permissions', { headers, data: { user_id: userID, resource_type: 'document', resource_id: documentPath.split('/').pop(), access_level: 'view' } })).ok()).toBeTruthy();
  const context = await browser.newContext();
+ await context.addInitScript(token => localStorage.setItem('dd_auth_token', token), investor.access_token);
  const viewPage = await context.newPage();
  viewPage.on('pageerror', err => errors.push(err.message));
- await viewPage.goto(baseURL!);
- await viewPage.evaluate(token => localStorage.setItem('dd_auth_token', token), investor.access_token);
  await viewPage.goto(`${baseURL}${documentPath}`);
- await expect(viewPage.locator('canvas')).toBeVisible();
- await expect(viewPage.getByRole('region', { name: 'PDF preview' })).toHaveAttribute('aria-busy', 'false');
+ const viewOnlyPDFResponses: string[] = [];
+ context.on('response', response => {
+  if (response.url().includes('/api/v1/documents/') && response.headers()['content-type']?.startsWith('application/pdf')) viewOnlyPDFResponses.push(response.url());
+ });
+ const viewTabPromise = context.waitForEvent('page');
+ await viewPage.getByRole('link', { name: 'Open PDF', exact: true }).click();
+ const viewTab = await viewTabPromise;
+ await expect(viewTab.getByAltText('Page 1')).toBeVisible();
+ await expect(viewTab.locator('iframe')).toHaveCount(0);
+ expect(viewOnlyPDFResponses).toEqual([]);
  await expect(viewPage.getByRole('button', { name: 'Download', exact: true })).toHaveCount(0);
  await expect(viewPage.getByRole('button', { name: /Delete/ })).toHaveCount(0);
  await expect(viewPage.getByRole('button', { name: 'Upload new version', exact: true })).toHaveCount(0);
@@ -86,11 +89,13 @@ test('document lifecycle, PDF preview and investor View Only', async ({ page, re
  await expect(viewPage.getByRole('heading', { name: 'PDF preview — v1' })).toBeVisible();
  await viewPage.goto(`${baseURL}/documents`);
  await expect(viewPage.getByRole('link', { name: `PDF ${suffix}`, exact: true })).toBeVisible();
- await expect(viewPage.getByRole('button', { name: 'Download', exact: true })).toHaveCount(0);
+ const viewOnlyRow = viewPage.locator('tbody tr').filter({ hasText: `PDF ${suffix}` });
+ await expect(viewOnlyRow.getByRole('button', { name: 'Download', exact: true })).toHaveCount(0);
  await expect(viewPage.getByRole('button', { name: /Delete/ })).toHaveCount(0);
  await expect(viewPage.getByRole('link', { name: 'Upload Document' })).toHaveCount(0);
  const invHeaders = { Authorization: `Bearer ${investor.access_token}` };
  expect((await request.get(`/api/v1${documentPath}/download`, { headers: invHeaders })).status()).toBe(404);
+ expect((await request.get(`/api/v1${documentPath}/preview`, { headers: invHeaders })).status()).toBe(404);
  expect((await request.delete(`/api/v1${documentPath}`, { headers: invHeaders })).status()).toBe(403);
  expect((await request.delete(`/api/v1${documentPath}/versions/2`, { headers: invHeaders })).status()).toBe(403);
  expect((await request.delete(`/api/v1/categories/${category.id}`, { headers: invHeaders })).status()).toBe(403);

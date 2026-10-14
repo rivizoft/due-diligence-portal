@@ -28,7 +28,7 @@ The documents page is the central hub of the data room:
   Financials, Legal, IP, Team, Product, Fundraising, Compliance, Market).
 - **Upload** -- Click **Upload Document** (admin/company members only) to add
   new files. Supported: PDF, Word, Excel, images, and more (up to 100MB).
-- **PDF preview** -- Open a document to read PDFs directly in the browser. Use
+- **PDF preview** -- Open a document and select Open PDF to read it in a new tab. Use
   the page controls and zoom selector; historical PDF versions have a **View** button.
 - **Download** -- Available only when your access permits downloading. View Only
   hides download buttons throughout the document list and version history.
@@ -195,3 +195,28 @@ Grants can have an **expiration date** for time-limited access.
 - **API Reference**: See [API.md](API.md) for all available endpoints.
 - **Deployment**: See [DEPLOYMENT.md](DEPLOYMENT.md) for Docker configuration.
 - **Environment Variables**: See [ENVIRONMENT.md](ENVIRONMENT.md) for all settings.
+
+### Opening PDF documents
+
+Select **Open PDF** in the document list, detail page or version history. A new
+tab displays **Preparing PDF…** until the file is ready. With download permission,
+the browser PDF viewer opens; otherwise the tab shows page images with page
+navigation. Later pages load as you scroll and show their own preparation status.
+A failed preparation displays a retry button. Downloads display **Preparing…**
+in the disabled download button; after an error, use Download again to retry.
+
+When enabled, the watermark appears on every page in either viewing mode and in
+PDF downloads. Variables use the authenticated user's name/email, document name
+and the UTC date in YYYY-MM-DD format. Changes apply to subsequent requests;
+an already open document retains the copy it received. Originals remain unchanged.
+The settings sample is illustrative; actual PDF font/layout may differ.
+
+View-only mode does not provide PDF downloads, printing controls, text selection
+or search. Saving images, browser printing and screenshots cannot be prevented.
+Rasterized pages have a fixed resolution, so high zoom can look less sharp.
+
+Encrypted, damaged or unsupported PDFs can fail preparation. When watermarking
+is enabled, a failure does not return the original. Applying a watermark can
+invalidate an existing PDF digital signature. The preparation input cap defaults
+to 100 MiB independently of the upload cap; administrators can configure it.
+The browser PDF viewer waits for the complete file transfer before display.

@@ -148,3 +148,15 @@ func TestWatermarkHandler_Unauthenticated(t *testing.T) {
 
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
+
+func TestWatermarkHandler_InvalidTemplateAndColor(t *testing.T) {
+	e, token := setupWatermarkHandlerTest(t)
+	for _, body := range []string{`{"enabled":true,"text_template":""}`, `{"text_template":"{{unknown}}"}`, `{"text_template":"{{date}"}`, `{"color":"red"}`, `{"color":"#gg0000"}`} {
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/watermark", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		require.Equal(t, 400, rec.Code, body)
+	}
+}
