@@ -71,7 +71,7 @@ func TestCacheTTLAndBudget(t *testing.T) {
 }
 func TestCacheQueueAndCancellation(t *testing.T) {
 	c := testCache(t, 1, 1, 100)
-	started := make(chan struct{})
+	started := make(chan struct{}, 1)
 	gate := make(chan struct{})
 	build := func(ctx context.Context, p string) error {
 		select {
@@ -93,11 +93,23 @@ func TestCacheQueueAndCancellation(t *testing.T) {
 		}
 		close(done)
 	}()
-	<-started
+	require.Eventually(t, func() bool {
+		select {
+		case <-started:
+			return true
+		default:
+			return false
+		}
+	}, time.Second, time.Millisecond)
 	ctx, cancel := context.WithCancel(context.Background())
-	queued := make(chan error)
+	defer cancel()
+	queued := make(chan error, 1)
 	go func() { _, e := c.Do(ctx, "b", build); queued <- e }()
-	time.Sleep(20 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		return c.jobs["b"] != nil && c.jobs["b"].waiters == 1
+	}, time.Second, time.Millisecond)
 	_, e := c.Do(context.Background(), "c", build)
 	require.ErrorIs(t, e, ErrBusy)
 	cancel()
