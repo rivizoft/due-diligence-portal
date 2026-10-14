@@ -5,14 +5,16 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"github.com/stretchr/testify/require"
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/witfoo/due-diligence-portal/internal/domain"
+	"github.com/witfoo/due-diligence-portal/internal/repository"
 )
 
 type objectMemory struct {
@@ -23,6 +25,9 @@ type objectMemory struct {
 	writes                       int
 	block                        chan struct{}
 	entered                      chan struct{}
+	deleteDeadline               bool
+	deleteGate                   chan struct{}
+	deleteEntered                chan struct{}
 }
 
 func TestStorageConfigChangeWaitsForUpload(t *testing.T) {
@@ -113,14 +118,130 @@ func (m *objectMemory) Get(_ context.Context, b, k string, maxBytes int64) ([]by
 	}
 	return append([]byte{}, data...), nil
 }
-func (m *objectMemory) Delete(_ context.Context, b, k string) error {
+func (m *objectMemory) Delete(ctx context.Context, b, k string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.deleteDeadline {
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	if m.deleteGate != nil {
+		close(m.deleteEntered)
+		select {
+		case <-m.deleteGate:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 	if m.failDelete {
 		return errors.New("denied")
 	}
 	delete(m.objects, b+"/"+k)
 	return nil
+}
+
+func TestCompensatingDeleteTimeoutStillQueuesRetry(t *testing.T) {
+	svc, db, m, _, _ := storageFixture(t)
+	ctx := context.Background()
+	_, err := svc.Update(ctx, validSave())
+	require.NoError(t, err)
+	m.deleteDeadline = true
+	v := versionForTest("timeout-orphan", []byte("data"))
+	require.Error(t, svc.Store(ctx, v, func() error { return errors.New("sql failed") }))
+	var jobs int
+	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM storage_cleanup_jobs`).Scan(&jobs))
+	require.Equal(t, 1, jobs, "a timed-out Delete must still leave a durable retry")
+}
+
+func TestStalledCleanupDoesNotBlockOfflineDisableOrSQLiteRead(t *testing.T) {
+	svc, db, m, docs, _ := storageFixture(t)
+	ctx := context.Background()
+	doc := docForTest()
+	v := versionForTest("local-before-s3", []byte("local"))
+	require.NoError(t, svc.Store(ctx, v, func() error { return docs.CreateWithVersion(ctx, doc, v) }))
+	_, err := svc.Update(ctx, validSave())
+	require.NoError(t, err)
+	require.NoError(t, repository.NewStorageRepository(db).QueueCleanup(ctx, domain.ObjectLocation{Bucket: "private-bucket", Key: "old-object"}))
+	m.deleteGate = make(chan struct{})
+	m.deleteEntered = make(chan struct{})
+	cleanupDone := make(chan struct{})
+	go func() { svc.Cleanup(ctx); close(cleanupDone) }()
+	<-m.deleteEntered
+	req := validSave()
+	req.Enabled = false
+	req.AccessKeyID = ""
+	req.SecretAccessKey = ""
+	updateDone := make(chan error, 1)
+	go func() { _, e := svc.Update(ctx, req); updateDone <- e }()
+	select {
+	case e := <-updateDone:
+		require.NoError(t, e)
+	case <-time.After(200 * time.Millisecond):
+		close(m.deleteGate)
+		<-cleanupDone
+		t.Fatal("offline disable blocked behind stalled cleanup")
+	}
+	data, err := svc.Read(ctx, doc.ID, 1)
+	require.NoError(t, err)
+	require.Equal(t, "local", string(data))
+	close(m.deleteGate)
+	<-cleanupDone
+}
+
+func TestCleanupSurvivesDatabaseReopen(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "portal.db")
+	keyPath := filepath.Join(dir, "storage.key")
+	ctx := context.Background()
+	db, err := repository.New(path)
+	require.NoError(t, err)
+	require.NoError(t, db.Migrate())
+	encrypted, err := newCredentialCipher(keyPath).Seal(Credentials{AccessKeyID: "access", SecretAccessKey: "secret"})
+	require.NoError(t, err)
+	r := repository.NewStorageRepository(db)
+	require.NoError(t, r.SaveConfig(ctx, &domain.StorageConfig{Bucket: "private-bucket", Region: "eu-central-1", Credentials: encrypted}))
+	require.NoError(t, r.QueueCleanup(ctx, domain.ObjectLocation{Bucket: "private-bucket", Key: "old-object"}))
+	require.NoError(t, db.Close())
+	reopened, err := repository.New(path)
+	require.NoError(t, err)
+	defer reopened.Close()
+	require.NoError(t, reopened.Migrate())
+	m := &objectMemory{objects: map[string][]byte{"private-bucket/old-object": []byte("old")}}
+	r = repository.NewStorageRepository(reopened)
+	svc := NewService(r, repository.NewDocumentRepository(reopened), keyPath, func(_ *domain.StorageConfig, _ Credentials) (Client, error) { return m, nil })
+	svc.Cleanup(ctx)
+	jobs, err := r.DueCleanup(ctx, 10)
+	require.NoError(t, err)
+	require.Empty(t, jobs)
+	require.Empty(t, m.objects)
+}
+
+func TestCleanupWorkerWakesForNewDeletion(t *testing.T) {
+	svc, db, m, _, _ := storageFixture(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_, err := svc.Update(ctx, validSave())
+	require.NoError(t, err)
+	repo := repository.NewStorageRepository(db)
+	require.NoError(t, repo.QueueCleanup(ctx, domain.ObjectLocation{Bucket: "private-bucket", Key: "startup-job"}))
+	done := make(chan struct{})
+	go func() { svc.RunCleanup(ctx); close(done) }()
+	defer func() { cancel(); <-done }()
+	countJobs := func() int {
+		var count int
+		require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM storage_cleanup_jobs`).Scan(&count))
+		return count
+	}
+	require.Eventually(t, func() bool { return countJobs() == 0 }, 2*time.Second, 10*time.Millisecond)
+	m.mu.Lock()
+	m.objects["private-bucket/new-job"] = []byte("old")
+	m.mu.Unlock()
+	require.NoError(t, repo.QueueCleanup(ctx, domain.ObjectLocation{Bucket: "private-bucket", Key: "new-job"}))
+	svc.ScheduleCleanup()
+	require.Eventually(t, func() bool { return countJobs() == 0 }, 2*time.Second, 10*time.Millisecond)
+	m.mu.Lock()
+	require.Empty(t, m.objects)
+	m.mu.Unlock()
 }
 func storageFixture(t *testing.T) (*Service, *repository.DB, *objectMemory, repository.DocumentRepository, string) {
 	t.Helper()
@@ -173,6 +294,15 @@ func TestStorageProbeAndSecretPreservation(t *testing.T) {
 	req.SecretAccessKey = "half"
 	_, err = svc.Update(ctx, req)
 	require.ErrorAs(t, err, new(*ValidationError))
+}
+
+func TestShortAccessKeyIsFullyMasked(t *testing.T) {
+	svc, _, _, _, _ := storageFixture(t)
+	req := validSave()
+	req.AccessKeyID = "abc"
+	settings, err := svc.Update(context.Background(), req)
+	require.NoError(t, err)
+	require.NotContains(t, settings.MaskedAccessKeyID, "abc")
 }
 func TestStorageValidationAndFailedEnable(t *testing.T) {
 	for _, mutate := range []func(*SaveRequest){func(r *SaveRequest) { r.Endpoint = "http://example.com" }, func(r *SaveRequest) { r.Endpoint = "https://u:p@example.com" }, func(r *SaveRequest) { r.KeyPrefix = "../bad" }, func(r *SaveRequest) { r.Bucket = "bad/bucket" }, func(r *SaveRequest) { r.Region = "" }, func(r *SaveRequest) { r.AccessKeyID = "" }} {

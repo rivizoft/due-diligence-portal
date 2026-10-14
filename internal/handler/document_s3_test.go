@@ -5,15 +5,17 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"github.com/stretchr/testify/require"
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
-	storesvc "github.com/witfoo/due-diligence-portal/internal/service/storage"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/witfoo/due-diligence-portal/internal/domain"
+	"github.com/witfoo/due-diligence-portal/internal/repository"
+	storesvc "github.com/witfoo/due-diligence-portal/internal/service/storage"
 )
 
 func TestS3PDFViewOnlyAndWatermarked(t *testing.T) {

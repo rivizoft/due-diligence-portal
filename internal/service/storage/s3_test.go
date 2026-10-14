@@ -2,13 +2,15 @@ package storage
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
-	"github.com/witfoo/due-diligence-portal/internal/domain"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/witfoo/due-diligence-portal/internal/domain"
 )
 
 func TestS3SDKSigningAndBoundedReads(t *testing.T) {
@@ -40,9 +42,9 @@ func TestS3SDKSigningAndBoundedReads(t *testing.T) {
 	require.ErrorIs(t, err, ErrContent)
 	require.NoError(t, client.Delete(ctx, "private-bucket", "docs/a b"))
 	require.Equal(t, []string{"PUT /private-bucket/docs/a b", "GET /private-bucket/docs/a b", "GET /private-bucket/docs/a b", "DELETE /private-bucket/docs/a b"}, paths)
-	cancelled, cancel := context.WithCancel(ctx)
+	canceled, cancel := context.WithCancel(ctx)
 	cancel()
-	_, err = client.Get(cancelled, "private-bucket", "key", 7)
+	_, err = client.Get(canceled, "private-bucket", "key", 7)
 	require.Error(t, err)
 	require.False(t, strings.Contains(err.Error(), "test-secret"))
 }

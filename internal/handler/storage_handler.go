@@ -3,12 +3,14 @@ package handler
 import (
 	"context"
 	"errors"
+	"net/http"
+
 	"github.com/labstack/echo/v4"
+
 	"github.com/witfoo/due-diligence-portal/internal/domain"
 	"github.com/witfoo/due-diligence-portal/internal/middleware"
 	storesvc "github.com/witfoo/due-diligence-portal/internal/service/storage"
 	"github.com/witfoo/due-diligence-portal/pkg/response"
-	"net/http"
 )
 
 // StorageHandler accepts write-only credentials and returns only safe settings.
@@ -17,15 +19,20 @@ type StorageHandler struct {
 	audit   *middleware.AuditLogger
 }
 
+// NewStorageHandler creates the administrator storage settings API.
 func NewStorageHandler(service *storesvc.Service, audit *middleware.AuditLogger) *StorageHandler {
 	return &StorageHandler{service: service, audit: audit}
 }
+
+// RegisterRoutes installs the three administrator-only endpoints.
 func (h *StorageHandler) RegisterRoutes(g *echo.Group) {
 	admin := middleware.RequireRole(domain.RoleAdmin)
 	g.GET("/storage", h.Get, admin)
 	g.PUT("/storage", h.Update, admin)
 	g.POST("/storage/test", h.Test, admin)
 }
+
+// Get returns saved settings without plaintext or encrypted credentials.
 func (h *StorageHandler) Get(c echo.Context) error {
 	settings, err := h.service.Settings(c.Request().Context())
 	if err != nil {
@@ -33,6 +40,8 @@ func (h *StorageHandler) Get(c echo.Context) error {
 	}
 	return response.OK(c, "Storage settings retrieved", settings)
 }
+
+// Update validates and saves the submitted connection settings.
 func (h *StorageHandler) Update(c echo.Context) error {
 	var req storesvc.SaveRequest
 	if err := c.Bind(&req); err != nil {
@@ -46,6 +55,8 @@ func (h *StorageHandler) Update(c echo.Context) error {
 	h.audit.LogFromContext(c, "storage.updated", "storage", "default", "", "saved")
 	return response.OK(c, "Storage settings saved", settings)
 }
+
+// Test verifies object upload/read/deletion without persisting the form.
 func (h *StorageHandler) Test(c echo.Context) error {
 	var req storesvc.SaveRequest
 	if err := c.Bind(&req); err != nil {
@@ -84,7 +95,7 @@ func storageResponseError(c echo.Context, err error) error {
 	case errors.Is(err, storesvc.ErrUnavailable):
 		return deliveryStatus(c, http.StatusServiceUnavailable, storesvc.ErrUnavailable.Error())
 	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
-		return deliveryStatus(c, http.StatusGatewayTimeout, "Storage request timed out or was cancelled. Please try again.")
+		return deliveryStatus(c, http.StatusGatewayTimeout, "Storage request timed out or was canceled. Please try again.")
 	default:
 		return response.InternalError(c)
 	}

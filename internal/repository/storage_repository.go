@@ -4,8 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/witfoo/due-diligence-portal/internal/domain"
 	"time"
+
+	"github.com/witfoo/due-diligence-portal/internal/domain"
 )
 
 // StorageRepository persists encrypted settings and the object-deletion outbox.
@@ -20,6 +21,7 @@ type StorageRepository interface {
 }
 type storageRepository struct{ db *DB }
 
+// NewStorageRepository creates a SQLite-backed storage configuration repository.
 func NewStorageRepository(db *DB) StorageRepository { return &storageRepository{db: db} }
 func (r *storageRepository) GetConfig(ctx context.Context) (*domain.StorageConfig, error) {
 	c := &domain.StorageConfig{}

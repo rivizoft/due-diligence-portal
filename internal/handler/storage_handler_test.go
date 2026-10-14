@@ -4,17 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http/httptest"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
+
 	"github.com/witfoo/due-diligence-portal/internal/domain"
 	"github.com/witfoo/due-diligence-portal/internal/middleware"
 	"github.com/witfoo/due-diligence-portal/internal/repository"
 	"github.com/witfoo/due-diligence-portal/internal/service"
 	storesvc "github.com/witfoo/due-diligence-portal/internal/service/storage"
-	"net/http/httptest"
-	"path/filepath"
-	"strings"
-	"testing"
 )
 
 type handlerObjectStore struct {
@@ -23,6 +26,7 @@ type handlerObjectStore struct {
 	deleted     int
 	putError    error
 	deleteError error
+	deleteGate  chan struct{}
 }
 
 func (s *handlerObjectStore) Put(_ context.Context, b, k string, data []byte, _ string) error {
@@ -40,13 +44,39 @@ func (s *handlerObjectStore) Get(_ context.Context, b, k string, _ int64) ([]byt
 	}
 	return data, nil
 }
-func (s *handlerObjectStore) Delete(_ context.Context, b, k string) error {
+func (s *handlerObjectStore) Delete(ctx context.Context, b, k string) error {
+	if s.deleteGate != nil {
+		select {
+		case <-s.deleteGate:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 	if s.deleteError != nil {
 		return s.deleteError
 	}
 	s.deleted++
 	delete(s.objects, b+"/"+k)
 	return nil
+}
+
+func TestS3HTTPDeleteReturnsBeforePhysicalCleanup(t *testing.T) {
+	e, _, admin, _, _, m := setupStorageHTTP(t)
+	require.Equal(t, 200, storageHTTP(t, e, admin, "PUT", "/storage", storageHTTPConfig()).Code)
+	id := uploadDocument(t, e, admin, "cat-financials")
+	uploadTestVersion(t, e, admin, id, "second")
+	m.deleteGate = make(chan struct{})
+	done := make(chan *httptest.ResponseRecorder, 1)
+	go func() { done <- documentRequest(e, admin, "DELETE", "/documents/"+id+"/versions/2") }()
+	select {
+	case rec := <-done:
+		require.Equal(t, 200, rec.Code, rec.Body.String())
+		close(m.deleteGate)
+	case <-time.After(200 * time.Millisecond):
+		close(m.deleteGate)
+		<-done
+		t.Fatal("successful deletion response waited for physical object cleanup")
+	}
 }
 func setupStorageHTTP(t *testing.T) (*echo.Echo, *service.AuthService, string, *repository.DB, *storesvc.Service, *handlerObjectStore) {
 	t.Helper()

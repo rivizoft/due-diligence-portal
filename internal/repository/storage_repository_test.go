@@ -2,9 +2,11 @@ package repository
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
-	"github.com/witfoo/due-diligence-portal/internal/domain"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/witfoo/due-diligence-portal/internal/domain"
 )
 
 func TestStorageConfigAndIdempotentMigration(t *testing.T) {

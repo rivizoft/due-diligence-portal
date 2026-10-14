@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+
 	"github.com/witfoo/due-diligence-portal/internal/domain"
 )
 
@@ -9,7 +10,7 @@ import (
 type VersionContent interface {
 	Store(context.Context, *domain.DocumentVersion, func() error) error
 	Read(context.Context, string, int) ([]byte, error)
-	Cleanup(context.Context)
+	ScheduleCleanup()
 }
 
 func (h *DocumentHandler) storeVersion(ctx context.Context, v *domain.DocumentVersion, persist func() error) error {

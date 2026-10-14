@@ -7,8 +7,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
 	"net"
 	"net/url"
 	"regexp"
@@ -16,8 +14,12 @@ import (
 	"sync"
 	"time"
 	"unicode"
+
+	"github.com/witfoo/due-diligence-portal/internal/domain"
+	"github.com/witfoo/due-diligence-portal/internal/repository"
 )
 
+// Storage errors expose safe diagnostic messages without SDK request details.
 var (
 	ErrUnavailable    = errors.New("S3 is unavailable; check connection and object permissions")
 	ErrLocationLocked = errors.New("bucket, endpoint, region and addressing cannot change while S3 versions or cleanup jobs exist")
@@ -25,6 +27,7 @@ var (
 	ErrKey            = errKey
 )
 
+// ValidationError describes a user-correctable connection field error.
 type ValidationError struct{ Message string }
 
 func (e *ValidationError) Error() string { return e.Message }
@@ -65,6 +68,8 @@ type SaveRequest struct {
 	AccessKeyID     string `json:"access_key_id"`
 	SecretAccessKey string `json:"secret_access_key"`
 }
+
+// Settings is the credential-redacted configuration returned to administrators.
 type Settings struct {
 	Enabled               bool   `json:"enabled"`
 	Bucket                string `json:"bucket"`
@@ -76,20 +81,24 @@ type Settings struct {
 	MaskedAccessKeyID     string `json:"masked_access_key_id"`
 	LocationLocked        bool   `json:"location_locked"`
 }
+
+// Service coordinates configuration snapshots, content and durable deletion jobs.
 type Service struct {
-	mu        sync.RWMutex
-	cleanupMu sync.Mutex
-	repo      repository.StorageRepository
-	docs      repository.DocumentRepository
-	cipher    *credentialCipher
-	factory   Factory
+	mu          sync.RWMutex
+	cleanupMu   sync.Mutex
+	cleanupWake chan struct{}
+	repo        repository.StorageRepository
+	docs        repository.DocumentRepository
+	cipher      *credentialCipher
+	factory     Factory
 }
 
+// NewService creates a content service; a nil factory selects the AWS SDK adapter.
 func NewService(repo repository.StorageRepository, docs repository.DocumentRepository, keyPath string, factory Factory) *Service {
 	if factory == nil {
 		factory = newS3Client
 	}
-	return &Service{repo: repo, docs: docs, cipher: newCredentialCipher(keyPath), factory: factory}
+	return &Service{repo: repo, docs: docs, cipher: newCredentialCipher(keyPath), factory: factory, cleanupWake: make(chan struct{}, 1)}
 }
 func (s *Service) settings(ctx context.Context, c *domain.StorageConfig) (*Settings, error) {
 	locked, err := s.repo.HasReferences(ctx)
@@ -98,6 +107,8 @@ func (s *Service) settings(ctx context.Context, c *domain.StorageConfig) (*Setti
 	}
 	return &Settings{Enabled: c.Enabled, Bucket: c.Bucket, Region: c.Region, Endpoint: c.Endpoint, PathStyle: c.PathStyle, KeyPrefix: c.KeyPrefix, CredentialsConfigured: len(c.Credentials) > 0, MaskedAccessKeyID: c.MaskedAccessKeyID, LocationLocked: locked}, nil
 }
+
+// Settings returns the safe saved configuration and location-lock state.
 func (s *Service) Settings(ctx context.Context) (*Settings, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -169,6 +180,8 @@ func (s *Service) credentials(req SaveRequest, c *domain.StorageConfig) (Credent
 	}
 	return s.cipher.Open(c.Credentials)
 }
+
+// Update verifies and atomically saves administrator-submitted settings.
 func (s *Service) Update(ctx context.Context, req SaveRequest) (*Settings, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -206,7 +219,10 @@ func (s *Service) Update(ctx context.Context, req SaveRequest) (*Settings, error
 			if e != nil {
 				return nil, e
 			}
-			tail := req.AccessKeyID[max(0, len(req.AccessKeyID)-4):]
+			tail := ""
+			if len(req.AccessKeyID) > 4 {
+				tail = req.AccessKeyID[len(req.AccessKeyID)-4:]
+			}
 			c.MaskedAccessKeyID = "••••" + tail
 		}
 	}
@@ -215,6 +231,8 @@ func (s *Service) Update(ctx context.Context, req SaveRequest) (*Settings, error
 	}
 	return s.settings(ctx, c)
 }
+
+// Test probes the submitted fields without changing saved settings.
 func (s *Service) Test(ctx context.Context, req SaveRequest) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

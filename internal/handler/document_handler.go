@@ -483,7 +483,7 @@ func (h *DocumentHandler) DeleteVersion(c echo.Context) error {
 	}
 	h.audit.LogFromContext(c, domain.AuditDocumentVersionDeleted, "document", doc.ID, doc.Name, fmt.Sprintf("version=%d", number))
 	if h.content != nil {
-		h.content.Cleanup(c.Request().Context())
+		h.content.ScheduleCleanup()
 	}
 	return response.OK(c, "Version deleted", nil)
 }

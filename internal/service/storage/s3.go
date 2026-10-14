@@ -4,14 +4,16 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
+	"net/http"
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/smithy-go"
+
 	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"io"
-	"net/http"
-	"time"
 )
 
 // Client describes the three object operations used by this application.
@@ -20,6 +22,8 @@ type Client interface {
 	Get(context.Context, string, string, int64) ([]byte, error)
 	Delete(context.Context, string, string) error
 }
+
+// Factory constructs a client from explicit administrator-configured credentials.
 type Factory func(*domain.StorageConfig, Credentials) (Client, error)
 type s3Client struct{ client *s3.Client }
 
@@ -49,7 +53,7 @@ func (c *s3Client) Get(ctx context.Context, bucket, key string, maxBytes int64) 
 		}
 		return nil, err
 	}
-	defer out.Body.Close()
+	defer func() { _ = out.Body.Close() }()
 	if out.ContentLength != nil && *out.ContentLength > maxBytes {
 		return nil, ErrContent
 	}

@@ -35,7 +35,7 @@ func (c *credentialCipher) key(create bool) ([]byte, error) {
 		if e != nil {
 			return nil, errKey
 		}
-		defer os.Remove(f.Name())
+		defer func() { _ = os.Remove(f.Name()) }()
 		if _, e = f.Write(key); e == nil {
 			e = f.Sync()
 		}
@@ -51,11 +51,12 @@ func (c *credentialCipher) key(create bool) ([]byte, error) {
 	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0600 {
 		return nil, errKey
 	}
+	// #nosec G304 -- Derived from the server's database path; type/inode/permissions are checked.
 	f, err := os.Open(c.path)
 	if err != nil {
 		return nil, errKey
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	opened, err := f.Stat()
 	if err != nil || !os.SameFile(info, opened) {
 		return nil, errKey

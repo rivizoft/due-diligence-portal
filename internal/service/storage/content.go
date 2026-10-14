@@ -5,9 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"github.com/witfoo/due-diligence-portal/internal/domain"
 	"log"
 	"time"
+
+	"github.com/witfoo/due-diligence-portal/internal/domain"
 )
 
 func (s *Service) client(c *domain.StorageConfig) (Client, error) {
@@ -59,7 +60,10 @@ func (s *Service) compensate(ctx context.Context, client Client, location domain
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	if err := client.Delete(cleanupCtx, location.Bucket, location.Key); err != nil {
-		if queueErr := s.repo.QueueCleanup(cleanupCtx, location); queueErr != nil {
+		// Delete may have exhausted its deadline; persist the retry independently.
+		queueCtx, queueCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer queueCancel()
+		if queueErr := s.repo.QueueCleanup(queueCtx, location); queueErr != nil {
 			log.Print("[WARN] S3 compensating deletion could not be queued; an orphan object may remain")
 		}
 	}
