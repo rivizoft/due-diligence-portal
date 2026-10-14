@@ -30,6 +30,7 @@ import (
 	"github.com/witfoo/due-diligence-portal/internal/repository"
 	"github.com/witfoo/due-diligence-portal/internal/service"
 	pdfsvc "github.com/witfoo/due-diligence-portal/internal/service/pdf"
+	storesvc "github.com/witfoo/due-diligence-portal/internal/service/storage"
 	"github.com/witfoo/due-diligence-portal/pkg/envconfig"
 )
 
@@ -172,6 +173,11 @@ func main() {
 	brandingRepo := repository.NewBrandingRepository(db)
 	ndaRepo := repository.NewNDARepository(db)
 	wmRepo := repository.NewWatermarkRepository(db)
+	storageService := storesvc.NewService(repository.NewStorageRepository(db), docRepo, filepath.Join(filepath.Dir(dbPath), "storage.key"), nil)
+	cleanupCtx, cleanupCancel := context.WithCancel(context.Background())
+	cleanupDone := make(chan struct{})
+	go func() { defer close(cleanupDone); storageService.RunCleanup(cleanupCtx) }()
+	defer func() { cleanupCancel(); <-cleanupDone }()
 
 	// --- Email Service ---
 	emailSvc := service.NewEmailService()
@@ -190,6 +196,7 @@ func main() {
 
 	// Route groups.
 	adminGroup := e.Group("/api/v1", authMW, adminOnly)
+	handler.NewStorageHandler(storageService, auditLogger).RegisterRoutes(adminGroup)
 	authGroup := e.Group("/api/v1", authMW)
 
 	// User management (admin only).
@@ -209,7 +216,7 @@ func main() {
 		log.Fatalf("[FATAL] PDF service: %v", err)
 	}
 	defer pdfService.Close()
-	docHandler := handler.NewDocumentHandler(docRepo, permRepo, auditLogger, wmRepo, pdfService)
+	docHandler := handler.NewDocumentHandler(docRepo, permRepo, auditLogger, wmRepo, pdfService, storageService)
 	docHandler.RegisterRoutes(authGroup)
 
 	// Categories.

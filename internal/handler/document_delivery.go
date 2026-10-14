@@ -67,6 +67,9 @@ func (h *DocumentHandler) recheck(c echo.Context, id, level string, version int)
 	return err
 }
 func deliveryError(c echo.Context, err error) error {
+	if isStorageError(err) {
+		return storageResponseError(c, err)
+	}
 	switch {
 	case errors.Is(err, domain.ErrDocumentNotFound):
 		return response.NotFound(c, "document not found")
@@ -107,11 +110,7 @@ func (h *DocumentHandler) prepareConfigured(c echo.Context, d *domain.Document, 
 	src := pdfsvc.Source{DocumentID: d.ID, DocumentName: d.Name, Version: v.VersionNumber, Checksum: v.ChecksumSHA256, Size: v.FileSize, MimeType: v.MimeType}
 	id := pdfsvc.Identity{ID: middleware.GetUserID(c), Email: middleware.GetUserEmail(c), Name: middleware.GetUserName(c)}
 	return h.pdfSvc.Prepare(c.Request().Context(), src, id, cfg, time.Now(), func(ctx context.Context) ([]byte, error) {
-		loaded, err := h.docRepo.GetVersion(ctx, d.ID, v.VersionNumber)
-		if err != nil {
-			return nil, err
-		}
-		return loaded.FileData, nil
+		return h.readVersion(ctx, d.ID, v.VersionNumber)
 	})
 }
 func (h *DocumentHandler) Preview(c echo.Context) error { return h.deliverFile(c, true) }
@@ -147,11 +146,11 @@ func (h *DocumentHandler) deliverFile(c echo.Context, inline bool) error {
 		}
 		defer artifact.Release()
 	} else {
-		loaded, e := h.docRepo.GetVersion(c.Request().Context(), d.ID, v.VersionNumber)
+		loaded, e := h.readVersion(c.Request().Context(), d.ID, v.VersionNumber)
 		if e != nil {
 			return deliveryError(c, e)
 		}
-		data = loaded.FileData
+		data = loaded
 	}
 	if err = h.recheck(c, d.ID, domain.AccessDownload, v.VersionNumber); err != nil {
 		return deliveryError(c, err)
