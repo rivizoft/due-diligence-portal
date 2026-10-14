@@ -63,3 +63,9 @@ Thumbs.db
 # Claude
 .claude/plans/
 secret.txt
+
+# Generated local PDF.js rendering assets
+ui/static/pdfjs/
+
+# Local validation scratch files
+/work/

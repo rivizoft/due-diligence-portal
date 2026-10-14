@@ -59,5 +59,7 @@ var (
 
 // Repository errors.
 var (
-	ErrDatabaseNil = errors.New("database connection is nil")
+	ErrLastVersion      = errors.New("cannot delete the last version; delete the document instead")
+	ErrCategoryNotEmpty = errors.New("category has documents or subcategories and cannot be deleted")
+	ErrDatabaseNil      = errors.New("database connection is nil")
 )

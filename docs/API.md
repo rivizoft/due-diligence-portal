@@ -33,9 +33,22 @@ All responses use the standard envelope:
 | PUT | `/documents/:id` | Yes | Admin, Company | Update metadata |
 | DELETE | `/documents/:id` | Yes | Admin, Company | Archive (soft delete) |
 | POST | `/documents/:id/versions` | Yes | Admin, Company | Upload new version |
-| GET | `/documents/:id/versions/:v` | Yes | All | Download specific version |
-| GET | `/documents/:id/download` | Yes | All | Download current version |
+| GET | `/documents/:id/versions/:v` | Yes | All | Download specific version (download permission) |
+| DELETE | `/documents/:id/versions/:v` | Yes | Admin, Company | Delete version (last version cannot be removed) |
+| GET | `/documents/:id/preview` | Yes | All | Preview current PDF (view permission) |
+| GET | `/documents/:id/versions/:v/preview` | Yes | All | Preview specific PDF version (view permission) |
+| GET | `/documents/:id/download` | Yes | All | Download current version (download permission) |
 | POST | `/documents/search` | Yes | All | Full-text search (`{"query":"..."}`) |
+
+Document list/search entries include `can_download`. Detail responses include
+`permissions: {can_download, can_manage}` alongside `document` and `versions`.
+PDF preview returns authenticated `application/pdf` bytes with inline disposition
+and `Cache-Control: no-store`; non-PDF previews return 400. Missing/inaccessible
+or archived documents return 404. Investors cannot upload or delete versions,
+regardless of their grant level. Deleting the current version switches to the
+highest remaining version and updates MIME type and size atomically. Version
+numbers are never reused. Deleting the last version returns 409; delete the
+document instead.
 
 ## Categories
 
@@ -44,7 +57,7 @@ All responses use the standard envelope:
 | GET | `/categories` | Yes | All | List categories (tree structure) |
 | POST | `/categories` | Yes | Admin | Create category |
 | PUT | `/categories/:id` | Yes | Admin | Update category |
-| DELETE | `/categories/:id` | Yes | Admin | Delete (must be empty) |
+| DELETE | `/categories/:id` | Yes | Admin | Delete (no active documents or subcategories) |
 
 ## Permissions
 

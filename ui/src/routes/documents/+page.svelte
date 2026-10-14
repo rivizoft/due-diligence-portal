@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { Category, Document } from '$types/api';
-	import { api } from '$api/client';
+	import { api, apiErrorMessage } from '$api/client';
+ import { authStore } from '$stores/authStore.svelte';
+ let canManage = $derived(authStore.isAdmin || authStore.isCompanyMember);
+ let deleting = $state('');
+ let actionError = $state('');
 
 	const PAGE_SIZE = 50;
 
@@ -94,9 +98,27 @@
 		try {
 			await api.download(`/documents/${id}/download`, name);
 		} catch {
-			// surfaced inline below via a transient flag is overkill here; ignore.
+			actionError = 'Download failed.';
 		}
 	}
+
+ async function deleteDoc(doc: Document) {
+  if (deleting || !canManage || !confirm(`Delete "${doc.name}" and remove access to all its versions?`)) return;
+  deleting = doc.id;
+  actionError = '';
+  try {
+   await api.delete(`/documents/${doc.id}`);
+   if (documents.length === 1 && page > 1) page--;
+   if (searchMode) await handleSearch(); else await loadDocuments();
+   await loadCategories();
+   if (selectedCategory && !categories.some(cat => cat.id === selectedCategory)) {
+    selectedCategory = '';
+    page = 1;
+    await loadDocuments();
+   }
+  } catch (err) { actionError = apiErrorMessage(err, 'Failed to delete document.'); }
+  finally { deleting = ''; }
+ }
 
 	function formatSize(bytes: number): string {
 		if (bytes < 1024) return `${bytes} B`;
@@ -119,7 +141,7 @@
 <div class="page">
 	<header class="page-header">
 		<h1>Documents</h1>
-		<a href="/documents/upload" class="btn-primary">Upload Document</a>
+		{#if canManage}<a href="/documents/upload" class="btn-primary">Upload Document</a>{/if}
 	</header>
 
 	<div class="filters">
@@ -141,6 +163,7 @@
 		</select>
 	</div>
 
+ {#if actionError}<p role="alert">{actionError}</p>{/if}
 	{#if loading}
 		<div class="loading">Loading documents...</div>
 	{:else if loadError}
@@ -173,7 +196,9 @@
 						<td>v{doc.current_version}</td>
 						<td>{formatDate(doc.created_at)}</td>
 						<td>
-							<button class="btn-small" onclick={() => downloadDoc(doc.id, doc.name)}>Download</button>
+							<a class="btn-small" href="/documents/{doc.id}">View</a>
+       {#if doc.can_download}<button class="btn-small" onclick={() => downloadDoc(doc.id, doc.name)}>Download</button>{/if}
+       {#if canManage}<button class="btn-small" onclick={() => deleteDoc(doc)} disabled={!!deleting}>Delete document</button>{/if}
 						</td>
 					</tr>
 				{/each}

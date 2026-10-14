@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"time"
 
 	"github.com/witfoo/due-diligence-portal/internal/domain"
 	"github.com/witfoo/due-diligence-portal/internal/repository"
@@ -30,23 +31,42 @@ func generateHandlerID() (string, error) {
 
 // documentAccessAllowed reports whether a user with the given role may access doc
 // at the required level. Staff (admin/company member) always may. Investors may
-// when DD_INVESTOR_ACCESS is "all" (the default); in "granted" mode they need a
+// with open access unless explicit grants constrain the requested level; in "granted" mode they need a
 // matching grant on the document OR on its category. This is the single source
 // of truth for per-document authorization across handlers.
 func documentAccessAllowed(ctx context.Context, permRepo repository.PermissionRepository, userID, role string, doc *domain.Document, level string) (bool, error) {
+	if doc.IsArchived {
+		return false, nil
+	}
 	if role == domain.RoleAdmin || role == domain.RoleCompanyMember {
 		return true, nil
 	}
-	if investorAccessOpen() {
-		return true, nil
+	// Explicit grants constrain downloads even when ungranted investors have open access.
+	// In granted mode retain the existing additive document/category grant behavior.
+	if !investorAccessOpen() {
+		if ok, err := permRepo.HasAccess(ctx, userID, domain.ResourceDocument, doc.ID, level); err != nil {
+			return false, err
+		} else if ok {
+			return true, nil
+		}
+		return permRepo.HasAccess(ctx, userID, domain.ResourceCategory, doc.CategoryID, level)
 	}
-	if ok, err := permRepo.HasAccess(ctx, userID, domain.ResourceDocument, doc.ID, level); err != nil {
+	grants, err := permRepo.ListByUser(ctx, userID)
+	if err != nil {
 		return false, err
-	} else if ok {
-		return true, nil
 	}
-	if doc.CategoryID == "" {
-		return false, nil
+	matched, allowed := false, false
+	for _, grant := range grants {
+		if (grant.ResourceType == domain.ResourceDocument && grant.ResourceID == doc.ID) ||
+			(grant.ResourceType == domain.ResourceCategory && grant.ResourceID == doc.CategoryID) {
+			matched = true
+			if (grant.ExpiresAt == nil || grant.ExpiresAt.After(time.Now())) && domain.HasAccess(grant.AccessLevel, level) {
+				allowed = true
+			}
+		}
 	}
-	return permRepo.HasAccess(ctx, userID, domain.ResourceCategory, doc.CategoryID, level)
+	if matched {
+		return allowed, nil
+	}
+	return true, nil
 }

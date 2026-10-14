@@ -4,6 +4,7 @@ import "time"
 
 // Document represents a document's metadata (file content is in DocumentVersion).
 type Document struct {
+	CanDownload    bool      `json:"can_download"`
 	ID             string    `json:"id"`
 	Name           string    `json:"name"`
 	Description    string    `json:"description,omitempty"`
