@@ -38,7 +38,8 @@ func SecurityHeaders() echo.MiddlewareFunc {
 					"script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; "+
 					"style-src 'self' 'unsafe-inline'; "+
 					"img-src 'self' data: blob:; "+
-					"font-src 'self'; "+
+					"font-src 'self' blob:; "+
+					"worker-src 'self'; "+
 					"connect-src 'self' https://cloudflareinsights.com; "+
 					"frame-ancestors 'none'; "+
 					"base-uri 'self'; "+

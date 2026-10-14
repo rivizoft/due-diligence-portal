@@ -168,6 +168,9 @@ func (h *CategoryHandler) Delete(c echo.Context) error {
 		if err == domain.ErrCategoryNotFound {
 			return response.NotFound(c, "category not found")
 		}
+		if err == domain.ErrCategoryNotEmpty {
+			return response.Conflict(c, err.Error())
+		}
 		return response.InternalError(c)
 	}
 

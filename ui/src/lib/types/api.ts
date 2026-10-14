@@ -36,6 +36,7 @@ export interface InviteToken {
 }
 
 export interface Document {
+ can_download: boolean;
 	id: string;
 	name: string;
 	description?: string;

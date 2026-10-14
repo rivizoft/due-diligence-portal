@@ -44,6 +44,7 @@ type DocumentRepository interface {
 	CreateVersion(ctx context.Context, v *domain.DocumentVersion) error
 	GetVersion(ctx context.Context, documentID string, versionNumber int) (*domain.DocumentVersion, error)
 	ListVersions(ctx context.Context, documentID string) ([]*domain.DocumentVersion, error)
+	DeleteVersion(ctx context.Context, documentID string, versionNumber int) error
 
 	Search(ctx context.Context, query string, limit, offset int) ([]*domain.Document, int, error)
 }
@@ -121,7 +122,7 @@ func (r *documentRepository) AddVersion(ctx context.Context, doc *domain.Documen
 
 	var next int
 	if err := tx.QueryRowContext(ctx,
-		`SELECT COALESCE(MAX(version_number), 0) + 1 FROM document_versions WHERE document_id = ?`,
+		`SELECT COALESCE((SELECT last_version FROM document_version_counters WHERE document_id = ?), 0) + 1`,
 		doc.ID).Scan(&next); err != nil {
 		return fmt.Errorf("compute next version (doc=%s): %w", doc.ID, err)
 	}
@@ -406,4 +407,37 @@ func (r *documentRepository) scanDocumentRow(row scannable) (*domain.Document, e
 	d.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
 	d.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
 	return &d, nil
+}
+
+// DeleteVersion removes content and switches the current pointer atomically.
+// The counter retains the highest allocated number; deleted numbers are never reused.
+func (r *documentRepository) DeleteVersion(ctx context.Context, documentID string, versionNumber int) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin delete-version: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	var exists int
+	if err := tx.QueryRowContext(ctx, `SELECT 1 FROM document_versions WHERE document_id = ? AND version_number = ?`, documentID, versionNumber).Scan(&exists); err == sql.ErrNoRows {
+		return domain.ErrVersionNotFound
+	} else if err != nil {
+		return fmt.Errorf("find version: %w", err)
+	}
+	var remaining, size int64
+	var mimeType string
+	if err := tx.QueryRowContext(ctx, `SELECT version_number, file_size, mime_type FROM document_versions WHERE document_id = ? AND version_number != ? ORDER BY version_number DESC LIMIT 1`, documentID, versionNumber).Scan(&remaining, &size, &mimeType); err == sql.ErrNoRows {
+		return domain.ErrLastVersion
+	} else if err != nil {
+		return fmt.Errorf("find remaining version: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM document_versions WHERE document_id = ? AND version_number = ?`, documentID, versionNumber); err != nil {
+		return fmt.Errorf("delete version: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE documents SET current_version = ?, mime_type = ?, file_size = ?, updated_at = ? WHERE id = ?`, remaining, mimeType, size, time.Now().UTC().Format(time.RFC3339), documentID); err != nil {
+		return fmt.Errorf("switch current version: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit delete-version: %w", err)
+	}
+	return nil
 }

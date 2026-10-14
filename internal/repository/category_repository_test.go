@@ -181,3 +181,34 @@ func TestCategoryRepository_Delete_NotFound(t *testing.T) {
 	err := repo.Delete(ctx, "nonexistent")
 	assert.ErrorIs(t, err, domain.ErrCategoryNotFound)
 }
+
+func TestCategoryRepository_DeleteAfterArchive(t *testing.T) {
+	db := setupTestDB(t)
+	user, category := seedDocumentDeps(t, db)
+	ctx := context.Background()
+	docs := NewDocumentRepository(db)
+	cats := NewCategoryRepository(db)
+	require.NoError(t, docs.Create(ctx, &domain.Document{ID: "archived-doc", Name: "Archived", CategoryID: category, UploadedBy: user, CurrentVersion: 1, MimeType: "application/pdf", FileSize: 10}))
+	require.ErrorIs(t, cats.Delete(ctx, category), domain.ErrCategoryNotEmpty)
+	require.NoError(t, docs.Archive(ctx, "archived-doc"))
+	require.NoError(t, cats.Delete(ctx, category))
+	_, err := cats.GetByID(ctx, category)
+	require.ErrorIs(t, err, domain.ErrCategoryNotFound)
+	tree, err := cats.List(ctx)
+	require.NoError(t, err)
+	for _, cat := range tree {
+		require.NotEqual(t, category, cat.ID)
+	}
+	require.NoError(t, db.Migrate())
+	_, err = cats.GetByID(ctx, category)
+	require.ErrorIs(t, err, domain.ErrCategoryNotFound)
+	require.NoError(t, cats.Create(ctx, &domain.Category{ID: "replacement", Name: "Replacement", Slug: "test-cat"}))
+}
+
+func TestCategoryRepository_DeleteWithChild(t *testing.T) {
+	db := setupTestDB(t)
+	_, parent := seedDocumentDeps(t, db)
+	cats := NewCategoryRepository(db)
+	require.NoError(t, cats.Create(context.Background(), &domain.Category{ID: "child", Name: "Child", Slug: "child", ParentID: &parent}))
+	require.ErrorIs(t, cats.Delete(context.Background(), parent), domain.ErrCategoryNotEmpty)
+}

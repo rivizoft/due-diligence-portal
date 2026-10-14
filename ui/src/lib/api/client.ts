@@ -207,6 +207,20 @@ async function download(path: string, fallbackName = 'download', isRetry = false
 	URL.revokeObjectURL(objectUrl);
 }
 
+/** Read authenticated binary content for in-app preview without starting a download. */
+async function bytes(path: string, isRetry = false): Promise<ArrayBuffer> {
+ const token = getAuthToken();
+ const resp = await fetch(`${API_BASE}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+ if (resp.status === 401) {
+  if (!isRetry && (await tryRefresh())) return bytes(path, true);
+  clearTokens();
+  redirectToLogin();
+  throw new ApiError(401, 'Unauthorized', null);
+ }
+ if (!resp.ok) throw new ApiError(resp.status, resp.statusText, await resp.json().catch(() => null));
+ return resp.arrayBuffer();
+}
+
 export const api = {
 	get: <T>(path: string) => request<T>('GET', path),
 	post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
@@ -215,6 +229,7 @@ export const api = {
 	delete: <T>(path: string) => request<T>('DELETE', path),
 	upload: <T>(path: string, formData: FormData) => request<T>('POST', path, formData),
 	download,
+ bytes,
 	setToken: setAuthToken,
 	setTokens,
 	clearToken: clearTokens,
