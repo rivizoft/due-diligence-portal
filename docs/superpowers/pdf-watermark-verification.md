@@ -29,3 +29,18 @@ Concurrent same-key cache lookups and distinct-user preparation completed under 
 ## Limitations
 
 Image previews add server work but render only requested pages. PNG text cannot be selected/searched, and fixed resolution limits zoom quality. Signed PDFs may lose signature validity after watermarking. Watermark percent escapes contain invisible separators to prevent pdfcpu's built-in `%p`/`%t` interpolation; displayed percent text remains literal. Download-byte authorization cannot revoke data already received by a browser. View-only users can save images or take screenshots.
+
+## Independent review
+
+One Important finding addressed: the runtime now installs `font-dejavu` so
+Poppler can substitute unembedded source fonts. A new raster regression checks
+original dark text pixels separately from watermark red pixels, with the feature
+both enabled and disabled. `scripts/testing/pdf-runtime.sh IMAGE` runs this
+regression against the final image as UID 1001 with a readonly root filesystem.
+Host regression passed; final-image regression remains blocked by Alpine egress.
+
+Deferred minor findings: normal shutdown does not remove the process's temporary
+pdfcpu font store; the plan checkboxes include some cases without committed
+automated regressions (huge dimensions, capped subprocess output, deletion after
+caching, grant loss between info and PDF fetch, cancelled raster-input lease).
+Those paths were reviewed, but inspection is not equivalent to test coverage.

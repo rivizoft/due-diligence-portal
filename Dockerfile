@@ -44,7 +44,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # =============================================================
 FROM alpine:3.21
 
-RUN apk --no-cache add ca-certificates tzdata wget poppler-utils util-linux
+RUN apk --no-cache add ca-certificates tzdata wget poppler-utils util-linux font-dejavu
 
 WORKDIR /app
 

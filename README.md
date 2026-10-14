@@ -115,7 +115,7 @@ it requests server-rendered PNG pages, including the watermark, without exposing
 the PDF file. Screenshots and saving visible images remain possible.
 
 The runtime requires `pdfinfo`, `pdftoppm` (Poppler) and `prlimit` (util-linux);
-the Dockerfile installs them. The embedded DejaVu Sans font supports Latin and
+the Dockerfile installs them and `font-dejavu` for source PDFs with unembedded fonts. The embedded DejaVu Sans font supports Latin and
 Cyrillic; its redistribution notice is in `internal/service/pdf/assets/`.
 pdfcpu is Apache-2.0; Poppler and util-linux are separately installed runtime
 tools under their respective licenses. Advanced text shaping and arbitrary
@@ -149,3 +149,7 @@ engine finishes. Do not increase input/worker limits without workload measuremen
 In the existing default `DD_INVESTOR_ACCESS=all` mode, investors have download
 access. Set `DD_INVESTOR_ACCESS=granted` and assign view grants for view-only
 access. Every binary route independently checks the current permission.
+
+After building the final image, run `scripts/testing/pdf-runtime.sh IMAGE` to
+check rasterized original text and watermark pixels as UID 1001 with a readonly
+root filesystem. It needs the Go toolchain and Docker on the test host.

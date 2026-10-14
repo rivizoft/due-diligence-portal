@@ -88,3 +88,49 @@ func TestPopplerKillsTimedOutProcess(t *testing.T) {
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	require.Less(t, time.Since(start), time.Second)
 }
+
+// Run this test in the final image too: unembedded Helvetica requires a runtime
+// replacement font independently of the embedded watermark font.
+func TestPopplerOriginalTextWithAndWithoutWatermark(t *testing.T) {
+	cfg, _ := LoadConfig()
+	cfg.CacheDir = t.TempDir()
+	s, err := NewService(cfg, nil, NewPoppler())
+	require.NoError(t, err)
+	defer s.Close()
+	data, err := os.ReadFile("testdata/sample.pdf")
+	require.NoError(t, err)
+	for _, enabled := range []bool{false, true} {
+		src := Source{DocumentID: "source-text", Version: 1, Size: int64(len(data)), MimeType: "application/pdf"}
+		wm := domain.WatermarkConfig{Enabled: enabled, TextTemplate: "PRIVATE", Position: "center", Opacity: .8, FontSize: 30, Color: "#ff0000"}
+		a, err := s.Prepare(context.Background(), src, Identity{ID: "text-check"}, wm, time.Now(), func(context.Context) ([]byte, error) { return data, nil })
+		require.NoError(t, err)
+		p, err := s.Page(context.Background(), a, 1)
+		require.NoError(t, err)
+		f, err := os.Open(p.Path)
+		require.NoError(t, err)
+		img, err := png.Decode(f)
+		require.NoError(t, err)
+		_ = f.Close()
+		dark := 0
+		red := 0
+		for y := 0; y < img.Bounds().Dy(); y++ {
+			for x := 0; x < img.Bounds().Dx(); x++ {
+				r, g, b, _ := img.At(x, y).RGBA()
+				if y < img.Bounds().Dy()/3 && r < 30000 && g < 30000 && b < 30000 {
+					dark++
+				}
+				if r > 40000 && g < 30000 && b < 30000 {
+					red++
+				}
+			}
+		}
+		require.Greater(t, dark, 300, "source text must remain visible with watermark enabled=%v", enabled)
+		if enabled {
+			require.Greater(t, red, 100)
+		} else {
+			require.Zero(t, red)
+		}
+		p.Release()
+		a.Release()
+	}
+}
