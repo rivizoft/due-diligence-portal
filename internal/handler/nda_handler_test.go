@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/witfoo/due-diligence-portal/internal/domain"
 	"github.com/witfoo/due-diligence-portal/internal/middleware"
 	"github.com/witfoo/due-diligence-portal/internal/repository"
 	"github.com/witfoo/due-diligence-portal/internal/service"
@@ -120,6 +121,53 @@ func TestNDAHandler_SignNDA(t *testing.T) {
 	// client-submitted "John Doe", so the signature cannot be attributed to a third party.
 	assert.Equal(t, "Administrator", data["signer_name"])
 	assert.Equal(t, templateID, data["template_id"])
+}
+
+func TestNDAHandler_SignNDA_FirstInvestorVisit(t *testing.T) {
+	e, h, adminToken, adminID := setupNDAHandlerTest(t)
+	ctx := context.Background()
+	authSvc := service.NewAuthService(h.userRepo, testJWTSecret)
+	invite, err := authSvc.CreateInvite(ctx, "first-investor@test.com", domain.RoleInvestor, adminID)
+	require.NoError(t, err)
+	investor, err := authSvc.Register(ctx, invite.Token, "First Investor", "password123")
+	require.NoError(t, err)
+
+	request := func(method, path, token, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, "/api/v1"+path, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		return rec
+	}
+	created := request(http.MethodPost, "/nda/templates", adminToken, `{"name":"Investor NDA","content":"Terms"}`)
+	require.Equal(t, http.StatusCreated, created.Code)
+
+	status := request(http.MethodGet, "/nda/status", investor.AccessToken, "")
+	require.Equal(t, http.StatusOK, status.Code)
+	var resp response.Response
+	require.NoError(t, json.Unmarshal(status.Body.Bytes(), &resp))
+	assert.Equal(t, false, resp.Data.(map[string]any)["signed"])
+
+	active := request(http.MethodGet, "/nda/active", investor.AccessToken, "")
+	require.Equal(t, http.StatusOK, active.Code)
+	require.NoError(t, json.Unmarshal(active.Body.Bytes(), &resp))
+	templateID := resp.Data.(map[string]any)["id"].(string)
+
+	// The first-visit form submits only the optional company, with no signer_name.
+	signed := request(http.MethodPost, "/nda/sign/"+templateID, investor.AccessToken, `{"signer_company":"Acme Inc"}`)
+	require.Equal(t, http.StatusCreated, signed.Code, signed.Body.String())
+	require.NoError(t, json.Unmarshal(signed.Body.Bytes(), &resp))
+	data := resp.Data.(map[string]any)
+	assert.Equal(t, "First Investor", data["signer_name"])
+	assert.Equal(t, "first-investor@test.com", data["signer_email"])
+	assert.Equal(t, investor.User.ID, data["user_id"])
+	assert.Equal(t, "Acme Inc", data["signer_company"])
+
+	status = request(http.MethodGet, "/nda/status", investor.AccessToken, "")
+	require.Equal(t, http.StatusOK, status.Code)
+	require.NoError(t, json.Unmarshal(status.Body.Bytes(), &resp))
+	assert.Equal(t, true, resp.Data.(map[string]any)["signed"])
 }
 
 func TestNDAHandler_SignNDA_AlreadySigned(t *testing.T) {

@@ -218,7 +218,14 @@ func (h *NDAHandler) Sign(c echo.Context) error {
 		return response.BadRequest(c, "invalid request body")
 	}
 
-	if req.SignerName == "" {
+	// Bind the signer name to the authenticated account before validation: the
+	// first-visit form does not send a name. Fall back to the submitted name only
+	// if the account has no name on record.
+	signerName := middleware.GetUserName(c)
+	if signerName == "" {
+		signerName = req.SignerName
+	}
+	if signerName == "" {
 		return response.BadRequest(c, "signer_name is required")
 	}
 
@@ -250,14 +257,7 @@ func (h *NDAHandler) Sign(c echo.Context) error {
 		return response.InternalError(c)
 	}
 
-	// Bind the signer identity to the authenticated account rather than trusting a
-	// client-supplied name; fall back to the submitted name only if the account has
-	// no name on record. user_id and email are always the authenticated values.
-	signerName := middleware.GetUserName(c)
-	if signerName == "" {
-		signerName = req.SignerName
-	}
-
+	// user_id and email are always the authenticated values.
 	sig := &domain.NDASignature{
 		ID:            id,
 		TemplateID:    templateID,

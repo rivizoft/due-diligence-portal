@@ -83,7 +83,7 @@
 				I have read and agree to the terms of this Non-Disclosure Agreement.
 			</label>
 			<button type="submit" class="btn-primary" disabled={!agreed || submitting}>
-				{submitting ? 'Submitting…' : 'Accept &amp; Continue'}
+				{submitting ? 'Submitting…' : 'Accept & Continue'}
 			</button>
 		</form>
 	{:else}
