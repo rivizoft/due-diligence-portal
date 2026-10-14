@@ -1,12 +1,14 @@
 package handler
 
 import (
-	"github.com/labstack/echo/v4"
-	pdfsvc "github.com/witfoo/due-diligence-portal/internal/service/pdf"
 	"math"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/labstack/echo/v4"
+
+	pdfsvc "github.com/witfoo/due-diligence-portal/internal/service/pdf"
 
 	"github.com/witfoo/due-diligence-portal/internal/domain"
 	"github.com/witfoo/due-diligence-portal/internal/middleware"

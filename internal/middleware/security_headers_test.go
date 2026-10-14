@@ -1,10 +1,11 @@
 package middleware
 
 import (
-	"github.com/labstack/echo/v4"
-	"github.com/stretchr/testify/require"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSecurityHeadersBlobPDFFrame(t *testing.T) {

@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.8'
+          go-version: '1.26.9'
           cache: true
       - uses: actions/setup-node@v4
         with:
@@ -70,7 +70,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.8'
+          go-version: '1.26.9'
           cache: true
       - uses: actions/setup-node@v4
         with:
@@ -78,6 +78,10 @@ jobs:
           cache: 'npm'
           cache-dependency-path: ui/package-lock.json
       - run: cd ui && npm ci
+      - name: Install PDF test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends poppler-utils util-linux fonts-dejavu-core
       - name: Go Unit Tests
         run: go test -short -count=1 -coverprofile=coverage.out ./...
         env:
@@ -95,8 +99,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.8'
+          go-version: '1.26.9'
           cache: true
+      - name: Install PDF test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends poppler-utils util-linux fonts-dejavu-core
       # Minimum bcrypt cost: password hashing dominates test runtime under -race
       # (the suite outgrew go test's default 10m timeout at production cost 12).
       - run: go test -race -short -count=1 -timeout 20m ./...
@@ -112,7 +120,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.8'
+          go-version: '1.26.9'
           cache: true
       - name: Go Vulnerability Check
         run: |
