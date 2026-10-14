@@ -43,6 +43,7 @@ type DocumentRepository interface {
 
 	CreateVersion(ctx context.Context, v *domain.DocumentVersion) error
 	GetVersion(ctx context.Context, documentID string, versionNumber int) (*domain.DocumentVersion, error)
+	GetVersionMetadata(ctx context.Context, documentID string, versionNumber int) (*domain.DocumentVersion, error)
 	ListVersions(ctx context.Context, documentID string) ([]*domain.DocumentVersion, error)
 
 	Search(ctx context.Context, query string, limit, offset int) ([]*domain.Document, int, error)
@@ -265,8 +266,20 @@ func (r *documentRepository) CreateVersion(ctx context.Context, v *domain.Docume
 }
 
 func (r *documentRepository) GetVersion(ctx context.Context, documentID string, versionNumber int) (*domain.DocumentVersion, error) {
+	return r.getVersion(ctx, documentID, versionNumber, true)
+}
+
+// GetVersionMetadata avoids loading the SQLite BLOB until preparation is admitted.
+func (r *documentRepository) GetVersionMetadata(ctx context.Context, documentID string, versionNumber int) (*domain.DocumentVersion, error) {
+	return r.getVersion(ctx, documentID, versionNumber, false)
+}
+func (r *documentRepository) getVersion(ctx context.Context, documentID string, versionNumber int, withData bool) (*domain.DocumentVersion, error) {
+	dataColumn := "NULL"
+	if withData {
+		dataColumn = "file_data"
+	}
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, document_id, version_number, file_data, file_size, mime_type, checksum_sha256, change_note, uploaded_by, created_at
+		`SELECT id, document_id, version_number, `+dataColumn+`, file_size, mime_type, checksum_sha256, change_note, uploaded_by, created_at
 		 FROM document_versions WHERE document_id = ? AND version_number = ?`, documentID, versionNumber)
 
 	var v domain.DocumentVersion

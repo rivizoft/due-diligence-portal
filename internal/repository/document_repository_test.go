@@ -281,3 +281,20 @@ func TestDocumentRepository_Search(t *testing.T) {
 	assert.Equal(t, 0, total)
 	assert.Len(t, results, 0)
 }
+
+func TestDocumentRepository_VersionMetadata(t *testing.T) {
+	db := setupTestDB(t)
+	user, cat := seedDocumentDeps(t, db)
+	repo := NewDocumentRepository(db)
+	ctx := context.Background()
+	d := &domain.Document{ID: "metadata", Name: "pdf", CategoryID: cat, UploadedBy: user, CurrentVersion: 1, MimeType: "application/pdf", FileSize: 7}
+	v := &domain.DocumentVersion{ID: "meta-v", DocumentID: d.ID, VersionNumber: 1, FileData: []byte("content"), FileSize: 7, MimeType: "application/pdf", ChecksumSHA256: "sha", UploadedBy: user}
+	require.NoError(t, repo.CreateWithVersion(ctx, d, v))
+	got, err := repo.GetVersionMetadata(ctx, d.ID, 1)
+	require.NoError(t, err)
+	require.Nil(t, got.FileData)
+	require.Equal(t, int64(7), got.FileSize)
+	require.Equal(t, "sha", got.ChecksumSHA256)
+	_, err = repo.GetVersionMetadata(ctx, d.ID, 2)
+	require.ErrorIs(t, err, domain.ErrVersionNotFound)
+}
