@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Document, DocumentVersion } from '$types/api';
-	import { api } from '$api/client';
+	import { api, apiErrorMessage } from '$api/client';
 	import { page } from '$app/state';
 
 	let doc = $state<Document | null>(null);
@@ -8,6 +8,7 @@
 	let loading = $state(true);
 	let error = $state('');
 	let downloadError = $state('');
+ let downloading = $state<Record<string, boolean>>({});
 
 	let docId = $derived(page.params.id ?? '');
 
@@ -27,23 +28,15 @@
 		loading = false;
 	}
 
-	async function downloadCurrent() {
-		downloadError = '';
-		try {
-			await api.download(`/documents/${docId}/download`, doc?.name ?? 'document');
-		} catch {
-			downloadError = 'Download failed.';
-		}
-	}
 
-	async function downloadVersion(v: number) {
-		downloadError = '';
-		try {
-			await api.download(`/documents/${docId}/versions/${v}`, `${doc?.name ?? 'document'}-v${v}`);
-		} catch {
-			downloadError = 'Download failed.';
-		}
-	}
+ async function downloadCurrent() { await download('current', `/documents/${docId}/download`, doc?.name ?? 'document'); }
+ async function downloadVersion(v: number) { await download(String(v), `/documents/${docId}/versions/${v}`, `${doc?.name ?? 'document'}-v${v}`); }
+ async function download(key: string, path: string, name: string) {
+  if (downloading[key]) return; downloading[key] = true; downloadError = '';
+  try { await api.download(path, name); }
+  catch (err) { downloadError = apiErrorMessage(err, 'Download failed. Please try again.'); }
+  finally { downloading[key] = false; }
+ }
 
 	function formatSize(bytes: number): string {
 		if (bytes < 1024) return `${bytes} B`;
@@ -72,10 +65,11 @@
 	{:else if doc}
 		<header class="doc-header">
 			<h1>{doc.name}</h1>
-			<button class="btn-primary" onclick={downloadCurrent}>Download</button>
+			{#if doc.mime_type === 'application/pdf'}<a class="btn-small" href="/documents/{docId}/preview" target="_blank" rel="noopener">Open PDF</a>{/if}
+   {#if doc.can_download}<button class="btn-primary" onclick={downloadCurrent} disabled={downloading.current} aria-busy={downloading.current ?? false}>{#if downloading.current}<span class="spinner" aria-hidden="true"></span>Preparing…{:else}Download{/if}</button>{/if}
 		</header>
 
-		{#if downloadError}<div class="error-msg">{downloadError}</div>{/if}
+		{#if downloadError}<div class="error-msg">{downloadError} Use Download to retry.</div>{/if}
 		{#if doc.description}<p class="description">{doc.description}</p>{/if}
 
 		<dl class="meta">
@@ -103,7 +97,8 @@
 							<td>{formatSize(v.file_size)}</td>
 							<td>{v.change_note ?? '—'}</td>
 							<td>{formatDate(v.created_at)}</td>
-							<td><button class="btn-small" onclick={() => downloadVersion(v.version_number)}>Download</button></td>
+							<td>{#if v.mime_type === 'application/pdf'}<a class="btn-small" href="/documents/{docId}/preview?version={v.version_number}" target="_blank" rel="noopener">Open PDF</a>{/if}
+       {#if doc.can_download}<button class="btn-small" onclick={() => downloadVersion(v.version_number)} disabled={downloading[String(v.version_number)]} aria-busy={downloading[String(v.version_number)] ?? false}>{#if downloading[String(v.version_number)]}<span class="spinner" aria-hidden="true"></span>Preparing…{:else}Download{/if}</button>{/if}</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -113,6 +108,9 @@
 </div>
 
 <style>
+ .spinner{display:inline-block;width:.75rem;height:.75rem;margin-right:.4rem;border:2px solid var(--dd-border);border-top-color:var(--dd-primary);border-radius:50%;animation:spin .8s linear infinite;}
+ @keyframes spin{to{transform:rotate(360deg);}}
+ @media(prefers-reduced-motion:reduce){.spinner{animation:none;}}
 	.page { max-width: 900px; margin: 0 auto; padding: 2rem; }
 	.back { color: var(--dd-primary); text-decoration: none; font-size: 0.875rem; }
 	.doc-header {

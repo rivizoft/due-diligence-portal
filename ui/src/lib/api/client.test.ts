@@ -31,3 +31,26 @@ describe('apiErrorMessage', () => {
 		expect(apiErrorMessage(undefined, 'fallback')).toBe('fallback');
 	});
 });
+
+import { beforeEach, afterEach, vi } from 'vitest';
+import { api } from './client';
+describe('authenticated binary', () => {
+ beforeEach(() => { localStorage.clear();localStorage.setItem('dd_auth_token','old-token'); });
+ afterEach(() => { vi.unstubAllGlobals();localStorage.clear(); });
+ it('uses header auth and preserves the download filename', async () => {
+  const fetcher=vi.fn().mockResolvedValue(new Response('PDF',{headers:{'Content-Type':'application/pdf','Content-Disposition':'inline; filename="report.pdf"'}}));vi.stubGlobal('fetch',fetcher);
+  const result=await api.binary('/documents/d/preview');expect(result.filename).toBe('report.pdf');expect(result.blob.type).toBe('application/pdf');expect(fetcher.mock.calls[0][0]).toBe('/api/v1/documents/d/preview');expect(fetcher.mock.calls[0][1].headers.Authorization).toBe('Bearer old-token');
+ });
+ it('propagates preparation errors from the envelope', async () => {
+  vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response(JSON.stringify({error:'PDF preparation timed out.'}),{status:504})));
+  try { await api.binary('/documents/d/preview');throw new Error('must reject'); } catch(err){expect(apiErrorMessage(err,'fallback')).toBe('PDF preparation timed out.');}
+ });
+ it('refreshes once and retries with the new token', async () => {
+  localStorage.setItem('dd_refresh_token','refresh');const fetcher=vi.fn().mockResolvedValueOnce(new Response('',{status:401})).mockResolvedValueOnce(new Response(JSON.stringify({data:{access_token:'new-token'}}))).mockResolvedValueOnce(new Response('PNG',{headers:{'Content-Type':'image/png'}}));vi.stubGlobal('fetch',fetcher);
+  await api.binary('/documents/d/preview-pages/1');expect(fetcher).toHaveBeenCalledTimes(3);expect(fetcher.mock.calls[2][1].headers.Authorization).toBe('Bearer new-token');
+ });
+ it('passes cancellation through to fetch', async () => {
+  const controller=new AbortController();controller.abort();const fetcher=vi.fn().mockRejectedValue(new DOMException('aborted','AbortError'));vi.stubGlobal('fetch',fetcher);
+  await expect(api.binary('/documents/d/preview',{signal:controller.signal})).rejects.toThrow('aborted');expect(fetcher.mock.calls[0][1].signal).toBe(controller.signal);
+ });
+});

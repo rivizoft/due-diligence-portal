@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { Category, Document } from '$types/api';
-	import { api } from '$api/client';
+	import { api, apiErrorMessage } from '$api/client';
 
 	const PAGE_SIZE = 50;
 
@@ -12,6 +12,8 @@
 	let searchMode = $state(false);
 	let loading = $state(true);
 	let loadError = $state('');
+ let downloadError = $state('');
+ let downloading = $state<Record<string, boolean>>({});
 	let page = $state(1);
 	let total = $state(0);
 
@@ -90,13 +92,14 @@
 		loading = false;
 	}
 
-	async function downloadDoc(id: string, name: string) {
-		try {
-			await api.download(`/documents/${id}/download`, name);
-		} catch {
-			// surfaced inline below via a transient flag is overkill here; ignore.
-		}
-	}
+
+ async function downloadDoc(id: string, name: string) {
+  if (downloading[id]) return;
+  downloading[id] = true; downloadError = '';
+  try { await api.download(`/documents/${id}/download`, name); }
+  catch (err) { downloadError = apiErrorMessage(err, 'Download failed. Please try again.'); }
+  finally { downloading[id] = false; }
+ }
 
 	function formatSize(bytes: number): string {
 		if (bytes < 1024) return `${bytes} B`;
@@ -117,6 +120,7 @@
 </script>
 
 <div class="page">
+ {#if downloadError}<p role="alert">{downloadError} Use Download to retry.</p>{/if}
 	<header class="page-header">
 		<h1>Documents</h1>
 		<a href="/documents/upload" class="btn-primary">Upload Document</a>
@@ -173,7 +177,8 @@
 						<td>v{doc.current_version}</td>
 						<td>{formatDate(doc.created_at)}</td>
 						<td>
-							<button class="btn-small" onclick={() => downloadDoc(doc.id, doc.name)}>Download</button>
+							{#if doc.mime_type === 'application/pdf'}<a class="btn-small" href="/documents/{doc.id}/preview" target="_blank" rel="noopener">Open PDF</a>{/if}
+       {#if doc.can_download}<button class="btn-small" onclick={() => downloadDoc(doc.id, doc.name)} disabled={downloading[doc.id]} aria-busy={downloading[doc.id] ?? false}>{#if downloading[doc.id]}<span class="spinner" aria-hidden="true"></span>Preparing…{:else}Download{/if}</button>{/if}
 						</td>
 					</tr>
 				{/each}
@@ -190,6 +195,9 @@
 </div>
 
 <style>
+ .spinner{display:inline-block;width:.75rem;height:.75rem;margin-right:.4rem;border:2px solid var(--dd-border);border-top-color:var(--dd-primary);border-radius:50%;animation:spin .8s linear infinite;}
+ @keyframes spin{to{transform:rotate(360deg);}}
+ @media(prefers-reduced-motion:reduce){.spinner{animation:none;}}
 	.pagination {
 		display: flex;
 		align-items: center;

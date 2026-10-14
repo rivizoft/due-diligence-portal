@@ -36,6 +36,7 @@ export interface InviteToken {
 }
 
 export interface Document {
+ can_download: boolean;
 	id: string;
 	name: string;
 	description?: string;
@@ -192,3 +193,6 @@ export interface NDASignature {
 	signed_at: string;
 	template_name?: string;
 }
+
+export interface PdfPageInfo { width: number; height: number }
+export interface PdfPreviewInfo { mode: 'pdf' | 'images'; version_number: number; pages: PdfPageInfo[]; name?: string }
