@@ -10,7 +10,7 @@
 
 ## Контекст проекта
 
-- Go 1.26.1, Echo v4, SQLite через modernc.org/sqlite; Svelte 5, SvelteKit, Carbon.
+- Go 1.26.9, Echo v4, SQLite через modernc.org/sqlite; Svelte 5, SvelteKit, Carbon.
 - `internal/handler/document_handler.go` загружает документы и версии в BLOB; `internal/repository/document_repository.go` сохраняет их транзакционно и распределяет номера версий.
 - `internal/handler/document_delivery.go` проверяет права до чтения файла и повторно перед выдачей. PDF-сервис получает содержимое через отложенный callback после допуска задачи.
 - SQLite использует одно соединение. Сетевые операции внутри SQL-транзакции недопустимы.
