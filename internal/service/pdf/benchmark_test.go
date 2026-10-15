@@ -4,11 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"github.com/witfoo/due-diligence-portal/internal/domain"
 	"os"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/witfoo/due-diligence-portal/internal/domain"
 )
 
 func BenchmarkDelivery(b *testing.B) {

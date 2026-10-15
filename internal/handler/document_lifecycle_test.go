@@ -12,6 +12,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
+
 	"github.com/witfoo/due-diligence-portal/internal/domain"
 	"github.com/witfoo/due-diligence-portal/internal/repository"
 )

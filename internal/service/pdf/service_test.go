@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"github.com/stretchr/testify/require"
-	"github.com/witfoo/due-diligence-portal/internal/domain"
 	"os"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/witfoo/due-diligence-portal/internal/domain"
 )
 
 func TestPrepareKeysAndLimits(t *testing.T) {

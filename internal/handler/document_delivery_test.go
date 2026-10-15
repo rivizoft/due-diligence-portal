@@ -5,17 +5,19 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"github.com/labstack/echo/v4"
-	"github.com/stretchr/testify/require"
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/middleware"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
-	pdfsvc "github.com/witfoo/due-diligence-portal/internal/service/pdf"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"sync/atomic"
 	"testing"
+
+	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/require"
+
+	"github.com/witfoo/due-diligence-portal/internal/domain"
+	"github.com/witfoo/due-diligence-portal/internal/middleware"
+	"github.com/witfoo/due-diligence-portal/internal/repository"
+	pdfsvc "github.com/witfoo/due-diligence-portal/internal/service/pdf"
 )
 
 type deliveryTest struct {

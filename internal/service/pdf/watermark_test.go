@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
 	"github.com/witfoo/due-diligence-portal/internal/domain"
 )
 

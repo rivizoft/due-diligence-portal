@@ -1,6 +1,6 @@
 module github.com/witfoo/due-diligence-portal
 
-go 1.26.1
+go 1.26.9
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.47.3
@@ -11,7 +11,7 @@ require (
 	github.com/labstack/echo/v4 v4.15.1
 	github.com/pdfcpu/pdfcpu v0.11.1
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/crypto v0.52.0
+	golang.org/x/crypto v0.57.0
 	modernc.org/sqlite v1.48.1
 )
 
@@ -41,10 +41,10 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
-	golang.org/x/image v0.32.0 // indirect
-	golang.org/x/net v0.55.0 // indirect
-	golang.org/x/sys v0.45.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/image v0.45.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

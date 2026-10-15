@@ -2,12 +2,13 @@ package pdf
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
 	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func testCache(t *testing.T, workers, queue int, budget int64) *Cache {
@@ -22,7 +23,7 @@ func TestCacheDeduplicatesAndLeases(t *testing.T) {
 	var calls atomic.Int32
 	start := make(chan struct{})
 	gate := make(chan struct{})
-	build := func(ctx context.Context, p string) error {
+	build := func(_ context.Context, p string) error {
 		if calls.Add(1) == 1 {
 			close(start)
 		}
@@ -70,7 +71,7 @@ func TestCacheTTLAndBudget(t *testing.T) {
 }
 func TestCacheQueueAndCancellation(t *testing.T) {
 	c := testCache(t, 1, 1, 100)
-	started := make(chan struct{})
+	started := make(chan struct{}, 1)
 	gate := make(chan struct{})
 	build := func(ctx context.Context, p string) error {
 		select {
@@ -92,11 +93,23 @@ func TestCacheQueueAndCancellation(t *testing.T) {
 		}
 		close(done)
 	}()
-	<-started
+	require.Eventually(t, func() bool {
+		select {
+		case <-started:
+			return true
+		default:
+			return false
+		}
+	}, time.Second, time.Millisecond)
 	ctx, cancel := context.WithCancel(context.Background())
-	queued := make(chan error)
+	defer cancel()
+	queued := make(chan error, 1)
 	go func() { _, e := c.Do(ctx, "b", build); queued <- e }()
-	time.Sleep(20 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		return c.jobs["b"] != nil && c.jobs["b"].waiters == 1
+	}, time.Second, time.Millisecond)
 	_, e := c.Do(context.Background(), "c", build)
 	require.ErrorIs(t, e, ErrBusy)
 	cancel()
@@ -124,12 +137,12 @@ func TestCacheErrorAndOversizedCleanup(t *testing.T) {
 	require.True(t, os.IsNotExist(e))
 }
 
-func TestCacheOneCancelledWaiter(t *testing.T) {
+func TestCacheOneCanceledWaiter(t *testing.T) {
 	c := testCache(t, 1, 1, 100)
 	ctx, cancel := context.WithCancel(context.Background())
 	start := make(chan struct{})
 	gate := make(chan struct{})
-	cancelled := make(chan error)
+	canceled := make(chan error)
 	var calls atomic.Int32
 	build := func(ctx context.Context, p string) error {
 		calls.Add(1)
@@ -141,7 +154,7 @@ func TestCacheOneCancelledWaiter(t *testing.T) {
 			return os.WriteFile(p, []byte("ok"), 0600)
 		}
 	}
-	go func() { _, e := c.Do(ctx, "shared", build); cancelled <- e }()
+	go func() { _, e := c.Do(ctx, "shared", build); canceled <- e }()
 	<-start
 	result := make(chan Artifact)
 	go func() { a, e := c.Do(context.Background(), "shared", build); require.NoError(t, e); result <- a }()
@@ -151,7 +164,7 @@ func TestCacheOneCancelledWaiter(t *testing.T) {
 		return c.jobs["shared"] != nil && c.jobs["shared"].waiters == 2
 	}, time.Second, time.Millisecond)
 	cancel()
-	require.ErrorIs(t, <-cancelled, context.Canceled)
+	require.ErrorIs(t, <-canceled, context.Canceled)
 	close(gate)
 	a := <-result
 	require.Equal(t, int32(1), calls.Load())
@@ -181,7 +194,28 @@ func TestCacheNonCancellableKeepsSlot(t *testing.T) {
 }
 
 func TestCacheDeadlineDoesNotReleaseActiveWorker(t *testing.T) {
- c:=testCache(t,1,1,100);c.cfg.Timeout=30*time.Millisecond;gate:=make(chan struct{});start:=make(chan struct{});done:=make(chan error)
- go func(){_,err:=c.Do(context.Background(),"uncancellable",func(_ context.Context,p string)error{close(start);<-gate;return os.WriteFile(p,[]byte("ok"),0600)});done<-err}();<-start
- select{case err:=<-done:require.ErrorIs(t,err,ErrTimeout);require.Len(t,c.slots,1);close(gate);case <-time.After(200*time.Millisecond):close(gate);<-done;t.Fatal("deadline must finish the waiting request while the worker remains occupied")}
+	c := testCache(t, 1, 1, 100)
+	c.cfg.Timeout = 30 * time.Millisecond
+	gate := make(chan struct{})
+	start := make(chan struct{})
+	done := make(chan error)
+	go func() {
+		_, err := c.Do(context.Background(), "uncancellable", func(_ context.Context, p string) error {
+			close(start)
+			<-gate
+			return os.WriteFile(p, []byte("ok"), 0600)
+		})
+		done <- err
+	}()
+	<-start
+	select {
+	case err := <-done:
+		require.ErrorIs(t, err, ErrTimeout)
+		require.Len(t, c.slots, 1)
+		close(gate)
+	case <-time.After(200 * time.Millisecond):
+		close(gate)
+		<-done
+		t.Fatal("deadline must finish the waiting request while the worker remains occupied")
+	}
 }
