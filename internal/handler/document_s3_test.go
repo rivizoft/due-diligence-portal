@@ -13,9 +13,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
-	storesvc "github.com/witfoo/due-diligence-portal/internal/service/storage"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/repository"
+	storesvc "github.com/rivizoft/due-diligence-portal/internal/service/storage"
 )
 
 func TestS3PDFViewOnlyAndWatermarked(t *testing.T) {
@@ -72,4 +72,43 @@ func TestS3UploadFailureDoesNotCreateMetadata(t *testing.T) {
 	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM documents`).Scan(&count))
 	require.Zero(t, count)
 	require.Empty(t, m.objects)
+}
+
+func TestS3HTTPNDAGateAndSessionRevocation(t *testing.T) {
+	for _, revoke := range []string{"deactivate", "password reset"} {
+		t.Run(revoke, func(t *testing.T) {
+			e, auth, admin, db, _, objects := setupStorageHTTP(t)
+			setInvestorAccessMode(t, "granted")
+			require.Equal(t, 200, storageHTTP(t, e, admin, "PUT", "/storage", storageHTTPConfig()).Code)
+			id := uploadDocument(t, e, admin, "cat-financials")
+			investor := loginInvestor(t, auth, admin)
+			ic, err := auth.ValidateToken(investor)
+			require.NoError(t, err)
+			ac, err := auth.ValidateToken(admin)
+			require.NoError(t, err)
+			ctx := context.Background()
+			nda := repository.NewNDARepository(db)
+			require.NoError(t, nda.CreateTemplate(ctx, &domain.NDATemplate{ID: "s3-nda", Name: "NDA", Content: "Terms", IsActive: true, Version: 1, CreatedBy: ac.UserID}))
+			require.NoError(t, repository.NewPermissionRepository(db).Grant(ctx, &domain.AccessGrant{ID: "s3-download", UserID: ic.UserID, ResourceType: domain.ResourceDocument, ResourceID: id, AccessLevel: domain.AccessDownload, GrantedBy: ac.UserID}))
+			reads := objects.reads
+			path := "/documents/" + id
+			for _, suffix := range []string{"", "/download", "/versions/1", "/preview", "/preview-info", "/preview-pages/1", "/versions/1/preview", "/versions/1/preview-info", "/versions/1/preview-pages/1"} {
+				require.Equal(t, 403, documentRequest(e, investor, "GET", path+suffix).Code, suffix)
+			}
+			require.Equal(t, reads, objects.reads, "NDA denial must occur before reading S3")
+			require.NoError(t, nda.CreateSignature(ctx, &domain.NDASignature{ID: "s3-signed", UserID: ic.UserID, TemplateID: "s3-nda", SignerName: ic.Name, SignerEmail: ic.Email, IPAddress: "127.0.0.1"}))
+			allowed := documentRequest(e, investor, "GET", path+"/download")
+			require.Equal(t, 200, allowed.Code)
+			require.Equal(t, "fake pdf content", allowed.Body.String())
+			reads = objects.reads
+			if revoke == "deactivate" {
+				require.NoError(t, repository.NewUserRepository(db).Deactivate(ctx, ic.UserID))
+			} else {
+				_, err = auth.SetPassword(ctx, ic.UserID, "replacement123")
+				require.NoError(t, err)
+			}
+			require.Equal(t, 401, documentRequest(e, investor, "GET", path+"/download").Code)
+			require.Equal(t, reads, objects.reads, "a revoked session must not read S3")
+		})
+	}
 }

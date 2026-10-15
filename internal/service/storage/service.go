@@ -15,8 +15,8 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/repository"
 )
 
 // Storage errors expose safe diagnostic messages without SDK request details.

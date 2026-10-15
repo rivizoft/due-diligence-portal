@@ -7,10 +7,10 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/middleware"
-	storesvc "github.com/witfoo/due-diligence-portal/internal/service/storage"
-	"github.com/witfoo/due-diligence-portal/pkg/response"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/middleware"
+	storesvc "github.com/rivizoft/due-diligence-portal/internal/service/storage"
+	"github.com/rivizoft/due-diligence-portal/pkg/response"
 )
 
 // StorageHandler accepts write-only credentials and returns only safe settings.

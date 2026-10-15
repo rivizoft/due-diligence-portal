@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
 )
 
 // ftsQuery converts arbitrary user input into a safe FTS5 MATCH expression. Each

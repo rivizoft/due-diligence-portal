@@ -8,7 +8,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
 )
 
 func (s *Service) client(c *domain.StorageConfig) (Client, error) {

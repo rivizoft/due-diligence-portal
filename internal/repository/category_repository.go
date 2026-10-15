@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
 )
 
 // CategoryRepository defines the interface for category data access.

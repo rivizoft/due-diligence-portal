@@ -35,7 +35,7 @@ the portal starts with zero required env vars in development.
 | `DD_MAX_UPLOAD_SIZE` | `104857600` | Maximum file upload size in bytes (default 100MB) |
 | `DD_ADMIN_EMAIL` | `admin@localhost` | Initial admin account email (created on first boot) |
 | `DD_ADMIN_PASSWORD` | (random) | Initial admin password. If unset, a random password is printed to logs. |
-| `DD_INVESTOR_ACCESS` | `all` | `all`: every investor sees every document (login + NDA are the gates). `granted`: investors see only documents covered by an access grant (per-document or per-category, managed in Admin → Access Grants). |
+| `DD_INVESTOR_ACCESS` | `granted` | Investors need an explicit per-document or per-category access grant (Admin → Access Grants). Only the exact value `all` opts into sharing every document with every authenticated investor who passes the server-side NDA gate. Unknown values require grants. |
 | `DD_BCRYPT_COST` | `12` | bcrypt work factor for password hashes. Exists so CI can lower it for test speed; **do not lower in production**. Out-of-range values fall back to 12. |
 
 ## Email (SMTP)

@@ -6,19 +6,19 @@ import (
 	"encoding/hex"
 	"time"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
-	"github.com/witfoo/due-diligence-portal/pkg/envconfig"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/repository"
+	"github.com/rivizoft/due-diligence-portal/pkg/envconfig"
 )
 
 // investorAccessMode controls whether investors need explicit access grants.
-// "all" (default): every authenticated investor sees every document — login and
-// the NDA gate are the only barriers. "granted": investors see only documents
-// covered by an access grant (per-document or per-category).
-var investorAccessMode = envconfig.GetEnv("DD_INVESTOR_ACCESS", "all")
+// "granted" (default): investors see only documents covered by an access grant
+// (per-document or per-category). Explicit "all" opts into sharing every document
+// with every authenticated investor who passes the NDA gate.
+var investorAccessMode = envconfig.GetEnv("DD_INVESTOR_ACCESS", "granted")
 
 // investorAccessOpen reports whether ungranted investors may access documents.
-func investorAccessOpen() bool { return investorAccessMode != "granted" }
+func investorAccessOpen() bool { return investorAccessMode == "all" }
 
 // generateHandlerID generates a random hex ID for new resources.
 func generateHandlerID() (string, error) {

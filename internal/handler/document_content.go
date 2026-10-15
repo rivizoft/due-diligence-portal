@@ -3,7 +3,7 @@ package handler
 import (
 	"context"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
 )
 
 // VersionContent is the content lifecycle consumed by document delivery.

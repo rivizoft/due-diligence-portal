@@ -13,11 +13,11 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/middleware"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
-	"github.com/witfoo/due-diligence-portal/internal/service"
-	storesvc "github.com/witfoo/due-diligence-portal/internal/service/storage"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/middleware"
+	"github.com/rivizoft/due-diligence-portal/internal/repository"
+	"github.com/rivizoft/due-diligence-portal/internal/service"
+	storesvc "github.com/rivizoft/due-diligence-portal/internal/service/storage"
 )
 
 type handlerObjectStore struct {
@@ -87,7 +87,8 @@ func setupStorageHTTP(t *testing.T) (*echo.Echo, *service.AuthService, string, *
 	audit := middleware.NewAuditLogger(db)
 	group := e.Group("/api/v1", middleware.JWTAuth(auth))
 	NewStorageHandler(svc, audit).RegisterRoutes(group)
-	NewDocumentHandler(docs, repository.NewPermissionRepository(db), audit, repository.NewWatermarkRepository(db), nil, svc).RegisterRoutes(group)
+	dataGroup := e.Group("/api/v1", middleware.JWTAuth(auth), middleware.RequireNDA(repository.NewNDARepository(db)))
+	NewDocumentHandler(docs, repository.NewPermissionRepository(db), audit, repository.NewWatermarkRepository(db), nil, svc).RegisterRoutes(dataGroup)
 	return e, auth, token, db, svc, m
 }
 func storageHTTP(t *testing.T, e *echo.Echo, token, method, path string, body any) *httptest.ResponseRecorder {

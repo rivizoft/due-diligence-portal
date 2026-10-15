@@ -5,8 +5,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/witfoo/due-diligence-portal/internal/service"
-	"github.com/witfoo/due-diligence-portal/pkg/response"
+	"github.com/rivizoft/due-diligence-portal/internal/service"
+	"github.com/rivizoft/due-diligence-portal/pkg/response"
 )
 
 // Context keys for storing claims.
@@ -32,14 +32,8 @@ func JWTAuth(authSvc *service.AuthService) echo.MiddlewareFunc {
 				return response.Unauthorized(c, "invalid authorization header format")
 			}
 
-			claims, err := authSvc.ValidateToken(parts[1])
+			claims, err := authSvc.ValidateAccessToken(c.Request().Context(), parts[1])
 			if err != nil {
-				return response.Unauthorized(c, "invalid or expired token")
-			}
-
-			// Only access tokens authorize API calls; a refresh token must not be
-			// usable as a bearer token (token-type confusion).
-			if claims.TokenType != service.TokenTypeAccess {
 				return response.Unauthorized(c, "invalid or expired token")
 			}
 

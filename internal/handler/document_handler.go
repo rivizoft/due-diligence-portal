@@ -11,13 +11,13 @@ import (
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/middleware"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
-	pdfsvc "github.com/witfoo/due-diligence-portal/internal/service/pdf"
-	"github.com/witfoo/due-diligence-portal/pkg/envconfig"
-	"github.com/witfoo/due-diligence-portal/pkg/response"
-	"github.com/witfoo/due-diligence-portal/pkg/sanitize"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/middleware"
+	"github.com/rivizoft/due-diligence-portal/internal/repository"
+	pdfsvc "github.com/rivizoft/due-diligence-portal/internal/service/pdf"
+	"github.com/rivizoft/due-diligence-portal/pkg/envconfig"
+	"github.com/rivizoft/due-diligence-portal/pkg/response"
+	"github.com/rivizoft/due-diligence-portal/pkg/sanitize"
 )
 
 const defaultMaxUploadSize int64 = 100 * 1024 * 1024       // 100MB

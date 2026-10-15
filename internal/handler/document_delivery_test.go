@@ -14,10 +14,10 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/middleware"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
-	pdfsvc "github.com/witfoo/due-diligence-portal/internal/service/pdf"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/middleware"
+	"github.com/rivizoft/due-diligence-portal/internal/repository"
+	pdfsvc "github.com/rivizoft/due-diligence-portal/internal/service/pdf"
 )
 
 type deliveryTest struct {

@@ -8,12 +8,12 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	pdfsvc "github.com/witfoo/due-diligence-portal/internal/service/pdf"
+	pdfsvc "github.com/rivizoft/due-diligence-portal/internal/service/pdf"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/middleware"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
-	"github.com/witfoo/due-diligence-portal/pkg/response"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/middleware"
+	"github.com/rivizoft/due-diligence-portal/internal/repository"
+	"github.com/rivizoft/due-diligence-portal/pkg/response"
 )
 
 // WatermarkHandler handles watermark configuration endpoints.

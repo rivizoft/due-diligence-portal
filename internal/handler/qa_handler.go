@@ -6,12 +6,12 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/middleware"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
-	"github.com/witfoo/due-diligence-portal/internal/service"
-	"github.com/witfoo/due-diligence-portal/pkg/response"
-	"github.com/witfoo/due-diligence-portal/pkg/sanitize"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/middleware"
+	"github.com/rivizoft/due-diligence-portal/internal/repository"
+	"github.com/rivizoft/due-diligence-portal/internal/service"
+	"github.com/rivizoft/due-diligence-portal/pkg/response"
+	"github.com/rivizoft/due-diligence-portal/pkg/sanitize"
 )
 
 // QAHandler handles Q&A endpoints.

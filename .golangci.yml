@@ -83,7 +83,7 @@ linters-settings:
   revive:
     config-file: revive.toml
   goimports:
-    local-prefixes: github.com/witfoo/due-diligence-portal
+    local-prefixes: github.com/rivizoft/due-diligence-portal
   misspell:
     locale: US
 

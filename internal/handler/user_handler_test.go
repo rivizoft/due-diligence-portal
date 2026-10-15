@@ -13,10 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/middleware"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
-	"github.com/witfoo/due-diligence-portal/internal/service"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/middleware"
+	"github.com/rivizoft/due-diligence-portal/internal/repository"
+	"github.com/rivizoft/due-diligence-portal/internal/service"
 )
 
 const (
@@ -310,22 +310,19 @@ func TestUserHandler_SetPassword_SelfDisabledAccount(t *testing.T) {
 	ctx := context.Background()
 	const newPassword = "DisabledAdminPass1"
 	// Another admin deactivated this account; its access token has not expired yet.
+	before, err := env.userRepo.GetByID(ctx, env.adminID)
+	require.NoError(t, err)
 	require.NoError(t, env.userRepo.Deactivate(ctx, env.adminID))
 
 	rec := env.putPassword(t, env.adminToken, env.adminID,
 		`{"password":"`+newPassword+`","current_password":"`+userTestAdminPassword+`"}`)
-	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-
-	data, ok := decodeUserHandlerBody(t, rec)["data"].(map[string]any)
-	require.True(t, ok)
-	assert.NotEmpty(t, data["access_token"])
-	user, ok := data["user"].(map[string]any)
-	require.True(t, ok)
-	assert.Equal(t, false, user["is_active"])
+	require.Equal(t, http.StatusUnauthorized, rec.Code, rec.Body.String())
+	assert.NotContains(t, rec.Body.String(), "access_token")
 
 	stored, err := env.userRepo.GetByID(ctx, env.adminID)
 	require.NoError(t, err)
-	assert.False(t, stored.IsActive, "setting a password never re-enables an account")
+	assert.False(t, stored.IsActive)
+	assert.Equal(t, before.PasswordHash, stored.PasswordHash, "a revoked session cannot change credentials")
 }
 
 func TestUserHandler_SetPassword_Throttled(t *testing.T) {

@@ -11,7 +11,7 @@ x-logging: &default-logging
 
 services:
   portal:
-    image: ghcr.io/witfoo/due-diligence-portal:latest
+    image: ghcr.io/rivizoft/due-diligence-portal:latest
     container_name: dd-portal
     restart: unless-stopped
     ports:

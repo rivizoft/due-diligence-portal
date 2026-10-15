@@ -24,14 +24,14 @@ import (
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/handler"
-	"github.com/witfoo/due-diligence-portal/internal/middleware"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
-	"github.com/witfoo/due-diligence-portal/internal/service"
-	pdfsvc "github.com/witfoo/due-diligence-portal/internal/service/pdf"
-	storesvc "github.com/witfoo/due-diligence-portal/internal/service/storage"
-	"github.com/witfoo/due-diligence-portal/pkg/envconfig"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/handler"
+	"github.com/rivizoft/due-diligence-portal/internal/middleware"
+	"github.com/rivizoft/due-diligence-portal/internal/repository"
+	"github.com/rivizoft/due-diligence-portal/internal/service"
+	pdfsvc "github.com/rivizoft/due-diligence-portal/internal/service/pdf"
+	storesvc "github.com/rivizoft/due-diligence-portal/internal/service/storage"
+	"github.com/rivizoft/due-diligence-portal/pkg/envconfig"
 )
 
 // Build-time variables set via ldflags.
@@ -173,6 +173,8 @@ func main() {
 	brandingRepo := repository.NewBrandingRepository(db)
 	ndaRepo := repository.NewNDARepository(db)
 	wmRepo := repository.NewWatermarkRepository(db)
+	// Keep NDA status/signing reachable while the data room itself is gated.
+	dataGroup := e.Group("/api/v1", authMW, middleware.RequireNDA(ndaRepo))
 	storageService := storesvc.NewService(repository.NewStorageRepository(db), docRepo, filepath.Join(filepath.Dir(dbPath), "storage.key"), nil)
 	cleanupCtx, cleanupCancel := context.WithCancel(context.Background())
 	cleanupDone := make(chan struct{})
@@ -203,7 +205,7 @@ func main() {
 	userHandler := handler.NewUserHandler(userRepo, authSvc, emailSvc, auditLogger)
 	userHandler.RegisterRoutes(adminGroup, passwordLimiter.Middleware())
 
-	// Documents (all handlers register on authGroup; internal role checks as needed).
+	// Documents (NDA-gated data group; internal role/grant checks as needed).
 	pdfConfig, err := pdfsvc.LoadConfig()
 	if err != nil {
 		log.Fatalf("[FATAL] PDF configuration: %v", err)
@@ -217,11 +219,11 @@ func main() {
 	}
 	defer pdfService.Close()
 	docHandler := handler.NewDocumentHandler(docRepo, permRepo, auditLogger, wmRepo, pdfService, storageService)
-	docHandler.RegisterRoutes(authGroup)
+	docHandler.RegisterRoutes(dataGroup)
 
 	// Categories.
 	catHandler := handler.NewCategoryHandler(catRepo, docRepo, auditLogger)
-	catHandler.RegisterRoutes(authGroup)
+	catHandler.RegisterRoutes(dataGroup)
 
 	// Permissions (admin only).
 	permHandler := handler.NewPermissionHandler(permRepo, auditLogger)
@@ -229,7 +231,7 @@ func main() {
 
 	// Q&A.
 	qaHandler := handler.NewQAHandler(qaRepo, permRepo, userRepo, emailSvc, auditLogger)
-	qaHandler.RegisterRoutes(authGroup)
+	qaHandler.RegisterRoutes(dataGroup)
 
 	// Audit log / activity (admins + company members; role enforced in the handler).
 	auditHandler := handler.NewAuditHandler(auditRepo, auditLogger)
@@ -237,7 +239,7 @@ func main() {
 
 	// Analytics.
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsRepo, docRepo, permRepo, userRepo, auditLogger)
-	analyticsHandler.RegisterRoutes(authGroup)
+	analyticsHandler.RegisterRoutes(dataGroup)
 
 	// Branding.
 	brandingHandler := handler.NewBrandingHandler(brandingRepo, auditLogger)
