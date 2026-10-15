@@ -10,38 +10,53 @@
  let actionError = $state<LocalizedText>('');
  let downloading = $state<Record<string, boolean>>({});
 
-	const PAGE_SIZE = 50;
+	const PAGE_SIZES = [10, 20, 30, 50, 100];
+	let pageSize = $state(50);
 
 	let documents = $state<Document[]>([]);
 	let categories = $state<Category[]>([]);
 	let selectedCategory = $state('');
 	let searchQuery = $state('');
-	let searchMode = $state(false);
+	let activeSearch = $state('');
 	let loading = $state(true);
 	let loadError = $state('');
 	let page = $state(1);
 	let total = $state(0);
+	let requestID = 0;
 
-	let totalPages = $derived(Math.max(1, Math.ceil(total / PAGE_SIZE)));
+	let totalPages = $derived(Math.max(1, Math.ceil(total / pageSize)));
 
 	async function loadDocuments() {
+		const id = ++requestID;
+		const requestedPage = page;
+		const requestedSize = pageSize;
+		const query = activeSearch;
 		loading = true;
 		loadError = '';
-		searchMode = false;
 		try {
 			const qs = new URLSearchParams();
 			if (selectedCategory) qs.set('category_id', selectedCategory);
-			qs.set('limit', String(PAGE_SIZE));
-			qs.set('offset', String((page - 1) * PAGE_SIZE));
-			const res = await api.get<Document[]>(`/documents?${qs.toString()}`);
+			qs.set('limit', String(requestedSize));
+			qs.set('offset', String((requestedPage - 1) * requestedSize));
+			const res = query
+				? await api.post<Document[]>(`/documents/search?${qs.toString()}`, { query })
+				: await api.get<Document[]>(`/documents?${qs.toString()}`);
+			if (id !== requestID) return;
+			total = res.meta?.total ?? res.data?.length ?? 0;
+			const lastPage = Math.max(1, Math.ceil(total / requestedSize));
+			if (requestedPage > lastPage) {
+				page = lastPage;
+				await loadDocuments();
+				return;
+			}
 			documents = res.data ?? [];
-			total = res.meta?.total ?? documents.length;
 		} catch {
-			loadError = 'Failed to load documents.';
+			if (id !== requestID) return;
+			loadError = query ? 'Search failed.' : 'Failed to load documents.';
 			documents = [];
-			total = 0;
+		} finally {
+			if (id === requestID) loading = false;
 		}
-		loading = false;
 	}
 
 	// The categories endpoint returns a nested tree; flatten it and keep only
@@ -68,33 +83,25 @@
 	function onCategoryChange() {
 		page = 1;
 		searchQuery = '';
+		activeSearch = '';
 		loadDocuments();
 	}
 
 	function goToPage(p: number) {
-		if (p < 1 || p > totalPages) return;
+		if (loading || p < 1 || p > totalPages) return;
 		page = p;
 		loadDocuments();
 	}
 
-	async function handleSearch() {
-		if (!searchQuery.trim()) {
-			page = 1;
-			await loadDocuments();
-			return;
-		}
-		loading = true;
-		loadError = '';
-		searchMode = true;
-		try {
-			const res = await api.post<Document[]>('/documents/search', { query: searchQuery });
-			documents = res.data ?? [];
-			total = documents.length;
-		} catch {
-			loadError = 'Search failed.';
-			documents = [];
-		}
-		loading = false;
+	function onPageSizeChange() {
+		page = 1;
+		loadDocuments();
+	}
+
+	function handleSearch() {
+		page = 1;
+		activeSearch = searchQuery.trim();
+		return loadDocuments();
 	}
 
  async function downloadDoc(id: string, name: string) {
@@ -111,7 +118,7 @@
   try {
    await api.delete(`/documents/${doc.id}`);
    if (documents.length === 1 && page > 1) page--;
-   if (searchMode) await handleSearch(); else await loadDocuments();
+   await loadDocuments();
    await loadCategories();
    if (selectedCategory && !categories.some(cat => cat.id === selectedCategory)) {
     selectedCategory = '';
@@ -153,7 +160,7 @@
 			<button onclick={handleSearch}>{$t("Search")}</button>
 		</div>
 
-		<select bind:value={selectedCategory} onchange={onCategoryChange}>
+		<select aria-label={$t("Category")} bind:value={selectedCategory} onchange={onCategoryChange}>
 			<option value="">{$t("All Categories")}</option>
 			{#each categories as cat}
 				<option value={cat.id}>{categoryName(cat, $locale)} ({$number(cat.document_count ?? 0)})</option>
@@ -203,14 +210,18 @@
 				{/each}
 			</tbody>
 		</table>
-			{#if !searchMode && totalPages > 1}
-				<div class="pagination">
-					<button class="page-btn" onclick={() => goToPage(page - 1)} disabled={page <= 1}>{$t("Previous")}</button>
-					<span class="page-info">{$t('Page {page} of {total}', {page,total:totalPages})} · {$t('{count} documents', {count:total})}</span>
-					<button class="page-btn" onclick={() => goToPage(page + 1)} disabled={page >= totalPages}>{$t("Next")}</button>
-				</div>
-			{/if}
 	{/if}
+	<nav class="pagination" aria-label={$t("Document pagination")}>
+		<label class="page-size" for="documents-page-size">
+			{$t("Documents per page")}
+			<select id="documents-page-size" bind:value={pageSize} onchange={onPageSizeChange} disabled={loading}>
+				{#each PAGE_SIZES as size}<option value={size}>{$number(size)}</option>{/each}
+			</select>
+		</label>
+		<button class="page-btn" onclick={() => goToPage(page - 1)} disabled={loading || page <= 1}>{$t("Previous")}</button>
+		<span class="page-info" aria-live="polite">{$t('Page {page} of {total}', {page,total:totalPages})} · {$t('{count} documents', {count:total})}</span>
+		<button class="page-btn" onclick={() => goToPage(page + 1)} disabled={loading || page >= totalPages}>{$t("Forward")}</button>
+	</nav>
 </div>
 
 <style>
@@ -220,11 +231,13 @@
 
 	.pagination {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		justify-content: center;
 		gap: 1rem;
 		margin-top: 1.5rem;
 	}
+	.page-size { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; }
 	.page-btn {
 		padding: 0.5rem 1rem;
 		background: var(--dd-surface);

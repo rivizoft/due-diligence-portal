@@ -42,6 +42,13 @@ All responses use the standard envelope:
 
 Document list/search entries include `can_download`. Detail responses include
 `permissions: {can_download, can_manage}` alongside `document` and `versions`.
+Both list and search accept `limit` (1–100, default 50), `offset` (default 0),
+and optional `category_id` query parameters. Their `meta` includes the current
+page, page size, total visible matches and `has_more`. Access filtering happens
+before counting and pagination. Document list ties use document ID ordering;
+search ties use document ID after full-text rank.
+The Documents page offers 10, 20, 30, 50 and 100 items per page, with 50 by default.
+Download filenames preserve Unicode letters and use UTF-8 `filename*` encoding.
 PDF preview returns authenticated `application/pdf` bytes with inline disposition
 and `Cache-Control: private, no-store` only with download permission; non-PDF previews return 422.
 View-only clients use preview-info and preview-pages to receive PNG pages. Missing/inaccessible

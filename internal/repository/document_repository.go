@@ -31,6 +31,7 @@ type DocumentRepository interface {
 	Create(ctx context.Context, doc *domain.Document) error
 	GetByID(ctx context.Context, id string) (*domain.Document, error)
 	List(ctx context.Context, categoryID string, limit, offset int) ([]*domain.Document, int, error)
+	Find(ctx context.Context, filter DocumentFilter, limit, offset int) ([]*domain.Document, int, error)
 	Update(ctx context.Context, doc *domain.Document) error
 	Archive(ctx context.Context, id string) error
 

@@ -82,56 +82,7 @@ func (h *DocumentHandler) canAccessDocument(c echo.Context, doc *domain.Document
 
 // List handles GET /documents.
 func (h *DocumentHandler) List(c echo.Context) error {
-	categoryID := c.QueryParam("category_id")
-	limit := 50
-	offset := 0
-	if v := c.QueryParam("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 100 {
-			limit = n
-		}
-	}
-	if v := c.QueryParam("offset"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
-			offset = n
-		}
-	}
-	if limit < 1 {
-		limit = 1 // defensive: keep the Page computation below safe from divide-by-zero
-	}
-
-	docs, total, err := h.docRepo.List(c.Request().Context(), categoryID, limit, offset)
-	if err != nil {
-		return response.InternalError(c)
-	}
-
-	// Filter for investors: only show documents they have a document- or
-	// category-level grant for (the same authorization used by every read path).
-	role := middleware.GetUserRole(c)
-	if role != domain.RoleAdmin && role != domain.RoleCompanyMember {
-		var filtered []*domain.Document
-		for _, doc := range docs {
-			hasAccess, err := h.canAccessDocument(c, doc, domain.AccessView)
-			if err != nil {
-				return response.InternalError(c)
-			}
-			if hasAccess {
-				filtered = append(filtered, doc)
-			}
-		}
-		docs = filtered
-		total = len(filtered)
-	}
-
-	if err := h.setDownloadPermissions(c, docs); err != nil {
-		return response.InternalError(c)
-	}
-	return response.OKWithMeta(c, "Documents retrieved", docs, &response.Meta{
-		Count:    len(docs),
-		Total:    total,
-		Page:     (offset / limit) + 1,
-		PageSize: limit,
-		HasMore:  offset+limit < total,
-	})
+	return h.listDocuments(c, "", "Documents retrieved")
 }
 
 // Get handles GET /documents/:id.
@@ -428,39 +379,7 @@ func (h *DocumentHandler) Search(c echo.Context) error {
 		return response.BadRequest(c, "query is required")
 	}
 
-	docs, total, err := h.docRepo.Search(c.Request().Context(), req.Query, 50, 0)
-	if err != nil {
-		return response.InternalError(c)
-	}
-
-	// Apply the same per-document access filter as List so search cannot be used to
-	// enumerate documents an investor has no grant for.
-	role := middleware.GetUserRole(c)
-	if role != domain.RoleAdmin && role != domain.RoleCompanyMember {
-		var filtered []*domain.Document
-		for _, doc := range docs {
-			hasAccess, err := h.canAccessDocument(c, doc, domain.AccessView)
-			if err != nil {
-				return response.InternalError(c)
-			}
-			if hasAccess {
-				filtered = append(filtered, doc)
-			}
-		}
-		docs = filtered
-		total = len(filtered)
-	}
-
-	if err := h.setDownloadPermissions(c, docs); err != nil {
-		return response.InternalError(c)
-	}
-	return response.OKWithMeta(c, "Search results", docs, &response.Meta{
-		Count:    len(docs),
-		Total:    total,
-		Page:     1,
-		PageSize: 50,
-		HasMore:  total > 50,
-	})
+	return h.listDocuments(c, req.Query, "Search results")
 }
 
 func (h *DocumentHandler) setDownloadPermissions(c echo.Context, docs []*domain.Document) error {

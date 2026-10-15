@@ -90,6 +90,11 @@ func TestFileName(t *testing.T) {
 		want  string
 	}{
 		{"clean name", "report.pdf", "report.pdf"},
+		{"Cyrillic", "Пояснение по категориям.pdf", "Пояснение по категориям.pdf"},
+		{"other scripts", "Résumé 资料 २०२६.pdf", "Résumé 资料 २०२६.pdf"},
+		{"combining marks", "Re\u0301sume\u0301.pdf", "Re\u0301sume\u0301.pdf"},
+		{"unicode traversal", "..\\папка\\Отчёт.pdf", "Отчёт.pdf"},
+		{"control characters", "Отчёт\r\n\u202e.pdf", "Отчёт___.pdf"},
 		// Hardened FileName drops any directory component (filepath.Base) so traversal
 		// sequences cannot survive; only the final path element is kept.
 		{"path traversal", "../../etc/passwd", "passwd"},
