@@ -28,7 +28,16 @@ type Factory func(*domain.StorageConfig, Credentials) (Client, error)
 type s3Client struct{ client *s3.Client }
 
 func newS3Client(config *domain.StorageConfig, creds Credentials) (Client, error) {
-	cfg := aws.Config{Region: config.Region, Credentials: credentials.NewStaticCredentialsProvider(creds.AccessKeyID, creds.SecretAccessKey, ""), RetryMaxAttempts: 2, HTTPClient: &http.Client{Timeout: 60 * time.Second}}
+	httpClient := &http.Client{
+		Timeout: 60 * time.Second,
+		// The configured endpoint is HTTPS, but a provider/gateway may redirect
+		// to plaintext HTTP or a different authority. Never forward signed S3
+		// operations or document content outside the configured destination.
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	cfg := aws.Config{Region: config.Region, Credentials: credentials.NewStaticCredentialsProvider(creds.AccessKeyID, creds.SecretAccessKey, ""), RetryMaxAttempts: 2, HTTPClient: httpClient}
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.UsePathStyle = config.PathStyle
 		if config.Endpoint != "" {

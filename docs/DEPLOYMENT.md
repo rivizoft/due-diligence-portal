@@ -153,6 +153,10 @@ Downloads and PDF rendering run through the backend with the current access
 rules. Do not make the bucket public; browser CORS is unnecessary. Permit
 backend HTTPS egress to the configured S3 endpoint. Startup and SQLite reads
 work while S3 is offline, but S3 uploads and reads return a controlled error.
+The S3 client rejects HTTP redirects, including HTTPS-to-HTTP redirects, to keep
+signed requests and document contents on the configured secure connection. Use
+the final HTTPS endpoint and the correct bucket region rather than a redirecting
+gateway or endpoint alias.
 
 Logical version deletion atomically queues physical object deletion; a worker
 retries failures after restart with backoff. Archiving keeps all originals, and
