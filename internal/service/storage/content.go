@@ -103,3 +103,35 @@ func (s *Service) Read(ctx context.Context, documentID string, number int) ([]by
 	}
 	return data, nil
 }
+
+// ReadPrefix is used only for authorized MIME repair; it never loads the whole
+// original or replaces the integrity-checked Read used for binary delivery.
+func (s *Service) ReadPrefix(ctx context.Context, documentID string, number int) ([]byte, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	v, err := s.docs.GetVersionMetadata(ctx, documentID, number)
+	if err != nil {
+		return nil, err
+	}
+	if v.Storage == nil {
+		return s.docs.GetVersionPrefix(ctx, documentID, number)
+	}
+	if v.FileSize == 0 {
+		return []byte{}, nil
+	}
+	c, err := s.repo.GetConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	client, err := s.client(c)
+	if err != nil {
+		return nil, err
+	}
+	opCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	data, err := client.GetPrefix(opCtx, v.Storage.Bucket, v.Storage.Key, min(v.FileSize, 1024))
+	if err != nil {
+		return nil, operationError("read", err)
+	}
+	return data, nil
+}

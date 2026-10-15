@@ -48,3 +48,17 @@ func TestS3SDKSigningAndBoundedReads(t *testing.T) {
 	require.Error(t, err)
 	require.False(t, strings.Contains(err.Error(), "test-secret"))
 }
+
+func TestS3PrefixReadsAreBoundedEvenWhenRangeIsIgnored(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "bytes=0-1023", r.Header.Get("Range"))
+		// Some compatible servers ignore Range; never load the complete object.
+		_, _ = io.WriteString(w, strings.Repeat("x", 4096))
+	}))
+	defer server.Close()
+	client, err := newS3Client(&domain.StorageConfig{Region: "eu-central-1", Endpoint: server.URL, PathStyle: true}, Credentials{AccessKeyID: "test-access", SecretAccessKey: "test-secret"})
+	require.NoError(t, err)
+	header, err := client.GetPrefix(context.Background(), "private-bucket", "document", 1024)
+	require.NoError(t, err)
+	require.Len(t, header, 1024)
+}

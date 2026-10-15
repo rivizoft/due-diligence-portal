@@ -87,3 +87,34 @@ func TestS3ReferenceRollback(t *testing.T) {
 	_, err := docs.GetByID(ctx, doc.ID)
 	require.ErrorIs(t, err, domain.ErrDocumentNotFound)
 }
+
+func TestDocumentArchiveCleanupIsAtomic(t *testing.T) {
+	db := setupTestDB(t)
+	user, cat := seedDocumentDeps(t, db)
+	ctx := context.Background()
+	docs := NewDocumentRepository(db)
+	doc := &domain.Document{ID: "archive", Name: "Test", CategoryID: cat, UploadedBy: user, CurrentVersion: 1}
+	v := &domain.DocumentVersion{ID: "archive-v1", DocumentID: doc.ID, VersionNumber: 1, FileData: []byte{}, FileSize: 4, MimeType: "application/pdf", UploadedBy: user, Storage: &domain.ObjectLocation{Bucket: "private", Key: "docs/archive-v1"}}
+	require.NoError(t, docs.CreateWithVersion(ctx, doc, v))
+	_, err := db.Exec(`CREATE TRIGGER fail_cleanup BEFORE INSERT ON storage_cleanup_jobs BEGIN SELECT RAISE(ABORT, 'disk error'); END`)
+	require.NoError(t, err)
+	require.Error(t, docs.Archive(ctx, doc.ID))
+	got, err := docs.GetByID(ctx, doc.ID)
+	require.NoError(t, err)
+	require.False(t, got.IsArchived)
+	version, err := docs.GetVersion(ctx, doc.ID, 1)
+	require.NoError(t, err)
+	require.Equal(t, v.Storage, version.Storage)
+	_, err = db.Exec(`DROP TRIGGER fail_cleanup`)
+	require.NoError(t, err)
+	require.NoError(t, docs.Archive(ctx, doc.ID))
+	_, err = docs.GetVersion(ctx, doc.ID, 1)
+	require.ErrorIs(t, err, domain.ErrVersionNotFound)
+	jobs, err := NewStorageRepository(db).DueCleanup(ctx, 10)
+	require.NoError(t, err)
+	require.Len(t, jobs, 1)
+	require.Equal(t, *v.Storage, jobs[0].Location)
+	// A stale uploader must not recreate content after deletion committed.
+	next := &domain.DocumentVersion{ID: "stale-upload", DocumentID: doc.ID, FileData: []byte("late"), UploadedBy: user}
+	require.ErrorIs(t, docs.AddVersion(ctx, doc, next), domain.ErrDocumentNotFound)
+}

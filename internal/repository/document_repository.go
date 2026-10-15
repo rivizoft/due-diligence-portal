@@ -44,6 +44,8 @@ type DocumentRepository interface {
 	CreateVersion(ctx context.Context, v *domain.DocumentVersion) error
 	GetVersion(ctx context.Context, documentID string, versionNumber int) (*domain.DocumentVersion, error)
 	GetVersionMetadata(ctx context.Context, documentID string, versionNumber int) (*domain.DocumentVersion, error)
+	GetVersionPrefix(ctx context.Context, documentID string, versionNumber int) ([]byte, error)
+	UpdateVersionMIME(ctx context.Context, documentID string, versionNumber int, mimeType string) error
 	ListVersions(ctx context.Context, documentID string) ([]*domain.DocumentVersion, error)
 	DeleteVersion(ctx context.Context, documentID string, versionNumber int) error
 
@@ -123,6 +125,13 @@ func (r *documentRepository) AddVersion(ctx context.Context, doc *domain.Documen
 		return fmt.Errorf("begin tx: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
+
+	var active int
+	if err := tx.QueryRowContext(ctx, `SELECT 1 FROM documents WHERE id = ? AND is_archived = 0`, doc.ID).Scan(&active); err == sql.ErrNoRows {
+		return domain.ErrDocumentNotFound
+	} else if err != nil {
+		return fmt.Errorf("check active document: %w", err)
+	}
 
 	var next int
 	if err := tx.QueryRowContext(ctx,
@@ -241,8 +250,13 @@ func (r *documentRepository) Update(ctx context.Context, doc *domain.Document) e
 }
 
 func (r *documentRepository) Archive(ctx context.Context, id string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin document deletion: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
 	now := time.Now().UTC().Format(time.RFC3339)
-	result, err := r.db.ExecContext(ctx,
+	result, err := tx.ExecContext(ctx,
 		`UPDATE documents SET is_archived = 1, updated_at = ? WHERE id = ?`, now, id)
 	if err != nil {
 		return fmt.Errorf("archive document (id=%s): %w", id, err)
@@ -253,6 +267,19 @@ func (r *documentRepository) Archive(ctx context.Context, id string) error {
 	}
 	if rows == 0 {
 		return domain.ErrDocumentNotFound
+	}
+	// Retain the document tombstone for audit/Q&A references, but remove all
+	// original content. Queue remote objects before cascading their references.
+	if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO storage_cleanup_jobs(bucket,object_key)
+		SELECT s.bucket,s.object_key FROM document_version_storage s
+		JOIN document_versions v ON v.id=s.version_id WHERE v.document_id=?`, id); err != nil {
+		return fmt.Errorf("queue document cleanup: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM document_versions WHERE document_id=?`, id); err != nil {
+		return fmt.Errorf("delete document versions: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit document deletion: %w", err)
 	}
 	return nil
 }
@@ -296,6 +323,42 @@ func (r *documentRepository) GetVersion(ctx context.Context, documentID string, 
 func (r *documentRepository) GetVersionMetadata(ctx context.Context, documentID string, versionNumber int) (*domain.DocumentVersion, error) {
 	return r.getVersion(ctx, documentID, versionNumber, false)
 }
+
+// GetVersionPrefix sniffs local originals without materializing a large BLOB.
+func (r *documentRepository) GetVersionPrefix(ctx context.Context, documentID string, versionNumber int) ([]byte, error) {
+	var data []byte
+	err := r.db.QueryRowContext(ctx, `SELECT substr(file_data,1,1024) FROM document_versions WHERE document_id=? AND version_number=?`, documentID, versionNumber).Scan(&data)
+	if err == sql.ErrNoRows {
+		return nil, domain.ErrVersionNotFound
+	}
+	return data, err
+}
+
+// UpdateVersionMIME repairs a version and its current-document summary together,
+// without overwriting a concurrent version upload or an administrator's edits.
+func (r *documentRepository) UpdateVersionMIME(ctx context.Context, documentID string, versionNumber int, mimeType string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	result, err := tx.ExecContext(ctx, `UPDATE document_versions SET mime_type=? WHERE document_id=? AND version_number=?`, mimeType, documentID, versionNumber)
+	if err != nil {
+		return fmt.Errorf("repair version MIME: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return domain.ErrVersionNotFound
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE documents SET mime_type=? WHERE id=? AND current_version=?`, mimeType, documentID, versionNumber); err != nil {
+		return fmt.Errorf("repair document MIME: %w", err)
+	}
+	return tx.Commit()
+}
+
 func (r *documentRepository) getVersion(ctx context.Context, documentID string, versionNumber int, withData bool) (*domain.DocumentVersion, error) {
 	dataColumn := "NULL"
 	if withData {

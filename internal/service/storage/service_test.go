@@ -118,6 +118,19 @@ func (m *objectMemory) Get(_ context.Context, b, k string, maxBytes int64) ([]by
 	}
 	return append([]byte{}, data...), nil
 }
+
+func (m *objectMemory) GetPrefix(_ context.Context, b, k string, limit int64) ([]byte, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.failGet {
+		return nil, errors.New("private upstream detail")
+	}
+	data, ok := m.objects[b+"/"+k]
+	if !ok {
+		return nil, ErrContent
+	}
+	return append([]byte{}, data[:min(int64(len(data)), limit)]...), nil
+}
 func (m *objectMemory) Delete(ctx context.Context, b, k string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

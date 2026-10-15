@@ -31,7 +31,7 @@ All responses use the standard envelope:
 | GET | `/documents/:id` | Yes | All | Document detail + version history |
 | POST | `/documents` | Yes | Admin, Company | Upload document (multipart) |
 | PUT | `/documents/:id` | Yes | Admin, Company | Update metadata |
-| DELETE | `/documents/:id` | Yes | Admin, Company | Archive (soft delete) |
+| DELETE | `/documents/:id` | Yes | Admin, Company | Delete all versions; retain metadata tombstone and queue S3 cleanup |
 | POST | `/documents/:id/versions` | Yes | Admin, Company | Upload new version |
 | GET | `/documents/:id/versions/:v` | Yes | All | Download specific version (download permission) |
 | DELETE | `/documents/:id/versions/:v` | Yes | Admin, Company | Delete version (last version cannot be removed) |

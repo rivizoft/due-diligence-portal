@@ -51,6 +51,9 @@ func (h *DocumentHandler) deliverySource(c echo.Context, level string) (*domain.
 		}
 	}
 	v, err := h.docRepo.GetVersionMetadata(c.Request().Context(), d.ID, n)
+	if err == nil {
+		err = h.resolveVersionMIME(c.Request().Context(), v)
+	}
 	return d, v, err
 }
 func (h *DocumentHandler) recheck(c echo.Context, id, level string, version int) error {

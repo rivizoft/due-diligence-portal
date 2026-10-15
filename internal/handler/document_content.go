@@ -10,6 +10,7 @@ import (
 type VersionContent interface {
 	Store(context.Context, *domain.DocumentVersion, func() error) error
 	Read(context.Context, string, int) ([]byte, error)
+	ReadPrefix(context.Context, string, int) ([]byte, error)
 	ScheduleCleanup()
 }
 
