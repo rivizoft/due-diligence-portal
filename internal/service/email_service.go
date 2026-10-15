@@ -1,9 +1,12 @@
 package service
 
 import (
+	"bytes"
 	"crypto/tls"
 	"fmt"
 	"log"
+	"mime"
+	"mime/quotedprintable"
 	"net/mail"
 	"net/smtp"
 	"strings"
@@ -42,12 +45,22 @@ func (s *EmailService) IsEnabled() bool {
 
 // SendInvite sends an invite email to a new user.
 func (s *EmailService) SendInvite(toEmail, inviteToken, portalURL string) error {
-	subject := "You've been invited to the Due Diligence Portal"
-	body := fmt.Sprintf(`You have been invited to access the Due Diligence Portal.
+	subject := "Приглашение на портал / Due Diligence Portal invitation"
+	body := fmt.Sprintf(`Вас пригласили на портал комплексной проверки.
+
+Перейдите по ссылке ниже, чтобы создать учётную запись:
+
+%[1]s/register?token=%[2]s
+
+Срок действия приглашения — 7 дней.
+
+--- English ---
+
+You have been invited to access the Due Diligence Portal.
 
 Click the link below to create your account:
 
-%s/register?token=%s
+%[1]s/register?token=%[2]s
 
 This invitation will expire in 7 days.`, portalURL, inviteToken)
 
@@ -56,23 +69,41 @@ This invitation will expire in 7 days.`, portalURL, inviteToken)
 
 // SendQANotification sends a notification about Q&A activity.
 func (s *EmailService) SendQANotification(toEmail, subject, threadSubject, authorName, body string) error {
-	emailBody := fmt.Sprintf(`%s posted a response in the Q&A thread "%s":
+	emailBody := fmt.Sprintf(`%[1]s отправил(а) ответ в обсуждении «%[2]s»:
 
 ---
-%s
+%[3]s
+---
+
+Войдите на портал, чтобы ответить.
+
+--- English ---
+
+%[1]s posted a response in the Q&A thread "%[2]s":
+
+---
+%[3]s
 ---
 
 Log in to the portal to reply.`, authorName, threadSubject, body)
 
-	return s.send(toEmail, "Q&A: "+subject, emailBody)
+	return s.send(toEmail, "Вопросы и ответы / Q&A: "+subject, emailBody)
 }
 
 // SendDocumentNotification sends a notification about a new document upload.
 func (s *EmailService) SendDocumentNotification(toEmail, documentName, categoryName, uploaderName string) error {
-	subject := fmt.Sprintf("New document uploaded: %s", documentName)
-	body := fmt.Sprintf(`%s uploaded a new document to the %s category:
+	subject := fmt.Sprintf("Новый документ / New document: %s", documentName)
+	body := fmt.Sprintf(`%[1]s загрузил(а) новый документ в категорию «%[2]s»:
 
-Document: %s
+Документ: %[3]s
+
+Войдите на портал для просмотра.
+
+--- English ---
+
+%[1]s uploaded a new document to the %[2]s category:
+
+Document: %[3]s
 
 Log in to the portal to view it.`, uploaderName, categoryName, documentName)
 
@@ -81,8 +112,14 @@ Log in to the portal to view it.`, uploaderName, categoryName, documentName)
 
 // SendNDASignedNotification notifies admins when an NDA is signed.
 func (s *EmailService) SendNDASignedNotification(toEmail, signerName, signerEmail, templateName string) error {
-	subject := fmt.Sprintf("NDA signed by %s", signerName)
-	body := fmt.Sprintf(`%s (%s) has signed the NDA "%s".
+	subject := fmt.Sprintf("NDA подписано / NDA signed: %s", signerName)
+	body := fmt.Sprintf(`%[1]s (%[2]s) подписал(а) соглашение о неразглашении «%[3]s».
+
+Войдите на портал, чтобы посмотреть сведения о подписи.
+
+--- English ---
+
+%[1]s (%[2]s) has signed the NDA "%[3]s".
 
 Log in to the portal to view the signature details.`, signerName, signerEmail, templateName)
 
@@ -127,11 +164,18 @@ func (s *EmailService) send(to, subject, body string) error {
 func buildEmailMessage(from, to, subject, body string) []byte {
 	headers := "From: " + from + "\r\n" +
 		"To: " + to + "\r\n" +
-		"Subject: " + subject + "\r\n" +
+		"Subject: " + mime.QEncoding.Encode("UTF-8", subject) + "\r\n" +
 		"MIME-Version: 1.0\r\n" +
 		"Content-Type: text/plain; charset=UTF-8\r\n" +
+		"Content-Transfer-Encoding: quoted-printable\r\n" +
 		"\r\n"
-	return []byte(headers + body)
+	var message bytes.Buffer
+	message.WriteString(headers)
+	writer := quotedprintable.NewWriter(&message)
+	// bytes.Buffer writes cannot fail.
+	_, _ = writer.Write([]byte(body))
+	_ = writer.Close()
+	return message.Bytes()
 }
 
 // sanitizeEmailHeader removes CR/LF characters that could enable header injection.

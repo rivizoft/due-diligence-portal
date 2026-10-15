@@ -1,11 +1,12 @@
 <script lang="ts">
+	import { type LocalizedText, t, hasTranslation } from '$lib/i18n';
  import { page } from '$app/state';
  import { api, apiErrorMessage } from '$api/client';
  import PdfPreview from '$components/PdfPreview.svelte';
  import type { PdfPreviewInfo } from '$types/api';
  let info = $state<PdfPreviewInfo | null>(null);
  let loading = $state(true);
- let error = $state('');
+ let error = $state<LocalizedText>('');
  let objectUrl = $state('');
  let filename = $state('document.pdf');
  let attempt = $state(0);
@@ -30,23 +31,23 @@
      url = URL.createObjectURL(result.blob); objectUrl = url; filename = result.filename ?? filename;
     } else if (info.mode !== 'images' || !info.pages.length) throw new Error('PDF preview is unavailable.');
    } catch (err) {
-    if (!controller.signal.aborted) error = apiErrorMessage(err, err instanceof Error ? err.message : 'PDF preparation failed. Please try again.');
+    if (!controller.signal.aborted) error = apiErrorMessage(err, err instanceof Error && hasTranslation(err.message) ? err.message : 'PDF preparation failed. Please try again.');
    } finally { if (!controller.signal.aborted) loading = false; }
   }
   void retry; void prepare();
   return () => { controller.abort(); if (url) URL.revokeObjectURL(url); };
  });
 </script>
-<svelte:head><title>{info?.name ?? 'PDF preview'}</title></svelte:head>
+<svelte:head><title>{info?.name ?? $t("PDF preview")}</title></svelte:head>
 <main class="preview-shell">
- <header><h1>{info?.name ?? 'PDF preview'}</h1><a href="/documents/{documentId}">Document details</a></header>
+ <header><h1>{info?.name ?? $t("PDF preview")}</h1><a href="/documents/{documentId}">{$t("Document details")}</a></header>
  {#if loading}
-  <p class="status" role="status"><span class="spinner" aria-hidden="true"></span>Preparing PDF…</p>
+  <p class="status" role="status"><span class="spinner" aria-hidden="true"></span>{$t("Preparing PDF…")}</p>
  {:else if error}
-  <div class="error" role="alert"><p>{error}</p><button onclick={() => attempt++}>Retry</button></div>
+  <div class="error" role="alert"><p>{$t(error)}</p><button onclick={() => attempt++}>{$t("Retry")}</button></div>
  {:else if info?.mode === 'pdf' && objectUrl}
-  <p class="fallback">If the browser cannot display this PDF, <a href={objectUrl} download={filename} role="button">Download PDF</a>.</p>
-  <iframe title="PDF preview" src={objectUrl}></iframe>
+  <p class="fallback">{$t("If the browser cannot display this PDF,")} <a href={objectUrl} download={filename} role="button">{$t("Download PDF")}</a>.</p>
+  <iframe title={$t("PDF preview")} src={objectUrl}></iframe>
  {:else if info?.mode === 'images'}
   {#key `${documentId}:${info.version_number}:${attempt}`}
    <PdfPreview {documentId} version={info.version_number} pages={info.pages} />

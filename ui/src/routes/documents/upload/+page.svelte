@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t, locale, categoryName } from '$lib/i18n';
 	import type { Category } from '$types/api';
 	import { api, ApiError } from '$api/client';
 	import { goto } from '$app/navigation';
@@ -82,41 +83,41 @@
 
 <div class="page">
 	<header class="page-header">
-		<h1>Upload Document</h1>
-		<a href="/documents" class="btn-secondary">Cancel</a>
+		<h1>{$t("Upload Document")}</h1>
+		<a href="/documents" class="btn-secondary">{$t("Cancel")}</a>
 	</header>
 
 	{#if error}
-		<div class="error-msg">{error}</div>
+		<div class="error-msg">{$t(error)}</div>
 	{/if}
 
 	<form onsubmit={handleSubmit}>
 		<div class="field">
-			<label for="file">File</label>
+			<label for="file">{$t("File")}</label>
 			<input id="file" type="file" onchange={onFileChange} required />
 		</div>
 		<div class="field">
-			<label for="name">Name</label>
-			<input id="name" type="text" bind:value={name} placeholder="Document name" required />
+			<label for="name">{$t("Name")}</label>
+			<input id="name" type="text" bind:value={name} placeholder={$t("Document name")} required />
 		</div>
 		<div class="field">
-			<label for="description">Description</label>
-			<textarea id="description" bind:value={description} rows="3" placeholder="Optional description"></textarea>
+			<label for="description">{$t("Description")}</label>
+			<textarea id="description" bind:value={description} rows="3" placeholder={$t("Optional description")}></textarea>
 		</div>
 		<div class="field">
-			<label for="category">Category</label>
+			<label for="category">{$t("Category")}</label>
 			<select id="category" bind:value={categoryId} required>
 				{#each categories as cat}
-					<option value={cat.id}>{cat.name}</option>
+					<option value={cat.id}>{categoryName(cat, $locale)}</option>
 				{/each}
 			</select>
 		</div>
 		<div class="field">
-			<label for="tags">Tags</label>
-			<input id="tags" type="text" bind:value={tags} placeholder="Comma-separated tags (optional)" />
+			<label for="tags">{$t("Tags")}</label>
+			<input id="tags" type="text" bind:value={tags} placeholder={$t("Comma-separated tags (optional)")} />
 		</div>
 		<button type="submit" class="btn-primary" disabled={submitting}>
-			{submitting ? 'Uploading…' : 'Upload'}
+			{submitting ? $t("Uploading…") : $t("Upload")}
 		</button>
 	</form>
 </div>

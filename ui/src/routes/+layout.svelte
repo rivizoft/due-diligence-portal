@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { t, initializeLocale } from '$lib/i18n';
+	import { browser } from '$app/environment';
+	import LanguageSwitcher from '$components/LanguageSwitcher.svelte';
 	import '../app.css';
 	import type { Snippet } from 'svelte';
 	import { page } from '$app/state';
@@ -6,6 +9,8 @@
 	import { authStore } from '$stores/authStore.svelte';
 	import { api } from '$api/client';
 	import NavHeader from '$components/NavHeader.svelte';
+
+	if (browser) initializeLocale();
 
 	let { children }: { children: Snippet } = $props();
 
@@ -68,29 +73,37 @@
 </script>
 
 <svelte:head>
-	<title>Due Diligence Portal</title>
+	<title>{$t("Due Diligence Portal")}</title>
 </svelte:head>
 
+<div class="app-shell">
 {#if showNav}
 	<NavHeader />
 {/if}
 
-<div class="app-content" class:has-nav={showNav}>
+<div class="app-content">
 	{#if ready}
 		{@render children()}
 	{:else if !isPublicRoute}
-		<div class="route-loading">Loading…</div>
+		<div class="route-loading">{$t("Loading…")}</div>
 	{/if}
+</div>
+<LanguageSwitcher />
 </div>
 
 <style>
+	.app-shell {
+		display: flex;
+		flex-direction: column;
+		min-height: 100dvh;
+	}
 	.app-content {
-		min-height: 100vh;
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-width: 0;
 	}
-
-	.app-content.has-nav {
-		min-height: calc(100vh - 48px);
-	}
+	.app-content > :global(*) { flex: 1; }
 
 	.route-loading {
 		display: flex;

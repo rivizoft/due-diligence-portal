@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import { page } from '$app/state';
 	import { authStore } from '$stores/authStore.svelte';
 
@@ -43,12 +44,12 @@
 <header class="nav-header">
 	<div class="nav-left">
 		<a href="/documents" class="nav-brand">
-			{authStore.user?.name ? 'Due Diligence Portal' : 'Portal'}
+			{authStore.user?.name ? $t("Due Diligence Portal") : $t("Portal")}
 		</a>
 		<nav class="nav-links">
 			{#each mainNav as item}
 				<a href={item.href} class="nav-link" class:active={isActive(item.href)}>
-					{item.label}
+					{$t(item.label)}
 				</a>
 			{/each}
 		</nav>
@@ -56,7 +57,7 @@
 
 	<div class="nav-user">
 		<button class="user-trigger" onclick={() => (menuOpen = !menuOpen)}>
-			<span class="user-name">{authStore.user?.name ?? authStore.user?.email ?? 'User'}</span>
+			<span class="user-name">{authStore.user?.name ?? authStore.user?.email ?? $t("User")}</span>
 			<span class="user-caret">{menuOpen ? '\u25B4' : '\u25BE'}</span>
 		</button>
 
@@ -65,10 +66,10 @@
 				<div class="menu-info">
 					<span class="info-name">{authStore.user?.name}</span>
 					<span class="info-email">{authStore.user?.email}</span>
-					<span class="info-role">{authStore.user?.role?.replace('_', ' ')}</span>
+					<span class="info-role">{$t(authStore.user?.role ?? 'User')}</span>
 				</div>
 				<div class="menu-divider"></div>
-				<button class="menu-item" onclick={handleLogout}>Sign Out</button>
+				<button class="menu-item" onclick={handleLogout}>{$t("Sign Out")}</button>
 			</div>
 		{/if}
 	</div>
@@ -76,7 +77,7 @@
 
 <style>
 	.nav-header {
-		height: 48px;
+		min-height: 48px;
 		background: var(--dd-header);
 		border-bottom: 1px solid var(--dd-border);
 		display: flex;
@@ -216,6 +217,16 @@
 		color: var(--dd-error, #da1e28);
 	}
 
+	@media (max-width: 1100px) {
+		.nav-brand { display: none; }
+	}
+	@media (max-width: 800px) {
+		.nav-header { flex-wrap: wrap; padding: 0 0.5rem; }
+		.nav-left { min-width: 0; flex: 1 1 100%; }
+		.nav-links { flex-wrap: wrap; }
+		.nav-link { height: auto; min-height: 40px; }
+		.nav-user { margin-left: auto; }
+	}
 	@media (max-width: 640px) {
 		.nav-brand {
 			display: none;

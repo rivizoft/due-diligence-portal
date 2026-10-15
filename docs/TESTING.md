@@ -112,3 +112,11 @@ func TestMyFunction(t *testing.T) {
 
 Repository tests use in-memory SQLite (`":memory:"`) with `setupTestDB(t)` helper.
 Handler tests use `httptest.NewServer` with real JWT authentication.
+
+## Language regression tests
+
+Run `cd ui && npm run test:i18n` for the isolated Playwright language suite.
+It starts Vite and stubs API fixtures, so no database or mail server is required.
+Install Playwright Chromium first, or set `CHROMIUM_PATH` to an installed Chromium
+executable. The suite covers browser defaults, fallback, live switching, saved
+preferences, existing errors, formatting, admin screens and keyboard operation.

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { type LocalizedText, t } from '$lib/i18n';
  import { api, apiErrorMessage } from '$api/client';
  import type { PDFDocumentProxy, PDFDocumentLoadingTask } from 'pdfjs-dist';
  import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -10,7 +11,7 @@
  let scale = $state(1.25);
  let loading = $state(true);
  let rendering = $state(false);
- let error = $state('');
+ let error = $state<LocalizedText>('');
 
  $effect(() => {
   const source = path;
@@ -66,21 +67,21 @@
  });
 </script>
 
-<section class="pdf-viewer" aria-label="PDF preview" aria-busy={loading || rendering}>
+<section class="pdf-viewer" aria-label={$t("PDF preview")} aria-busy={loading || rendering}>
  {#if loading}
-  <p role="status">Loading PDF…</p>
+  <p role="status">{$t("Loading PDF…")}</p>
  {:else if error}
-  <p role="alert">{error}</p>
+  <p role="alert">{$t(error)}</p>
  {:else if pdf}
   <div class="toolbar">
-   <button onclick={() => pageNumber--} disabled={pageNumber <= 1 || rendering}>Previous page</button>
-   <span>Page {pageNumber} of {pdf.numPages}</span>
-   <button onclick={() => pageNumber++} disabled={pageNumber >= pdf.numPages || rendering}>Next page</button>
-   <label>Zoom <select bind:value={scale} disabled={rendering}>
+   <button onclick={() => pageNumber--} disabled={pageNumber <= 1 || rendering}>{$t("Previous page")}</button>
+   <span>{$t('Page {page} of {total}', {page:pageNumber,total:pdf.numPages})}</span>
+   <button onclick={() => pageNumber++} disabled={pageNumber >= pdf.numPages || rendering}>{$t("Next page")}</button>
+   <label>{$t("Zoom")} <select bind:value={scale} disabled={rendering}>
     <option value={0.75}>75%</option><option value={1}>100%</option><option value={1.25}>125%</option><option value={1.5}>150%</option><option value={2}>200%</option>
    </select></label>
   </div>
-  <div class="pages"><canvas bind:this={canvas} aria-label={`PDF page ${pageNumber}`}></canvas></div>
+  <div class="pages"><canvas bind:this={canvas} aria-label={$t('PDF page {page}', {page:pageNumber})}></canvas></div>
  {/if}
 </section>
 

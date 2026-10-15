@@ -8,6 +8,7 @@ and Svelte 5 frontend.
 
 ## Features
 
+- **English and Russian** -- Browser language detection, persistent language switcher, localized dates and file sizes
 - **Document management** -- Upload, categorize, version, and search documents with FTS5
 - **Optional S3 storage** -- Connect a private AWS S3 or compatible bucket in Admin > Storage; no S3 environment variables
 - **Granular permissions** -- Per-document and per-category access grants with expiration

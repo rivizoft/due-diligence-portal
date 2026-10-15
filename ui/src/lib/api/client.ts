@@ -1,3 +1,5 @@
+import { hasTranslation, type LocalizedText } from '$lib/i18n';
+
 /**
  * API Client for the Due Diligence Portal.
  * Follows the WitFoo Analytics pattern: JWT auth, typed responses, error handling.
@@ -45,12 +47,18 @@ export interface ApiErrorResponse {
 
 /**
  * Extract the server's user-facing error message from a thrown error.
- * Returns the envelope's `error` string when present and non-empty, else `fallback`.
+ * Known server messages remain translation keys; unknown diagnostics use `fallback`.
  */
-export function apiErrorMessage(err: unknown, fallback: string): string {
+export function apiErrorMessage(err: unknown, fallback: string): string;
+export function apiErrorMessage(err: unknown, fallback: LocalizedText): LocalizedText;
+export function apiErrorMessage(err: unknown, fallback: LocalizedText): LocalizedText {
 	if (err instanceof ApiError && err.body !== null && typeof err.body === 'object') {
 		const message = (err.body as { error?: unknown }).error;
-		if (typeof message === 'string' && message.trim() !== '') return message;
+		if (typeof message === 'string' && message.trim() !== '') {
+			// Known server messages are translated at render time. Unknown diagnostics
+			// use the caller's localizable message rather than leaking untranslated text.
+			return hasTranslation(message) ? message : fallback;
+		}
 	}
 	return fallback;
 }

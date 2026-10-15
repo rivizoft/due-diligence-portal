@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import { api } from '$api/client';
 
 	// If user has a token, redirect to documents. Otherwise show landing.
@@ -12,9 +13,9 @@
 
 <main>
 	<div class="hero">
-		<h1>Due Diligence Portal</h1>
-		<p>Securely share documents with investors.</p>
-		<a href="/login" class="btn-primary">Sign In</a>
+		<h1>{$t("Due Diligence Portal")}</h1>
+		<p>{$t("Securely share documents with investors.")}</p>
+		<a href="/login" class="btn-primary">{$t("Sign In")}</a>
 	</div>
 </main>
 
@@ -23,7 +24,7 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		min-height: 100vh;
+		min-height: 0;
 	}
 
 	.hero {

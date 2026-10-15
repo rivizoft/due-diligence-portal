@@ -1,11 +1,13 @@
 <script lang="ts">
+	import { formatFileSize } from '$lib/utils/format';
+	import { type LocalizedText, t, locale, intlLocale, categoryName, number } from '$lib/i18n';
 	import { onMount } from 'svelte';
 	import type { Category, Document } from '$types/api';
 	import { api, apiErrorMessage } from '$api/client';
  import { authStore } from '$stores/authStore.svelte';
  let canManage = $derived(authStore.isAdmin || authStore.isCompanyMember);
  let deleting = $state('');
- let actionError = $state('');
+ let actionError = $state<LocalizedText>('');
  let downloading = $state<Record<string, boolean>>({});
 
 	const PAGE_SIZE = 50;
@@ -103,7 +105,7 @@
  }
 
  async function deleteDoc(doc: Document) {
-  if (deleting || !canManage || !confirm(`Delete "${doc.name}" and remove access to all its versions?`)) return;
+  if (deleting || !canManage || !confirm($t('Delete "{name}" and remove access to all its versions?', {name:doc.name}))) return;
   deleting = doc.id;
   actionError = '';
   try {
@@ -120,14 +122,10 @@
   finally { deleting = ''; }
  }
 
-	function formatSize(bytes: number): string {
-		if (bytes < 1024) return `${bytes} B`;
-		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-	}
+	function formatSize(bytes: number): string { return formatFileSize(bytes, $locale); }
 
 	function formatDate(iso: string): string {
-		return new Date(iso).toLocaleDateString('en-US', {
+		return new Date(iso).toLocaleDateString(intlLocale($locale), {
 			year: 'numeric', month: 'short', day: 'numeric'
 		});
 	}
@@ -140,46 +138,46 @@
 
 <div class="page">
 	<header class="page-header">
-		<h1>Documents</h1>
-		{#if canManage}<a href="/documents/upload" class="btn-primary">Upload Document</a>{/if}
+		<h1>{$t("Documents")}</h1>
+		{#if canManage}<a href="/documents/upload" class="btn-primary">{$t("Upload Document")}</a>{/if}
 	</header>
 
 	<div class="filters">
 		<div class="search-bar">
 			<input
 				type="text"
-				placeholder="Search documents..."
+				placeholder={$t("Search documents...")}
 				bind:value={searchQuery}
 				onkeydown={(e) => e.key === 'Enter' && handleSearch()}
 			/>
-			<button onclick={handleSearch}>Search</button>
+			<button onclick={handleSearch}>{$t("Search")}</button>
 		</div>
 
 		<select bind:value={selectedCategory} onchange={onCategoryChange}>
-			<option value="">All Categories</option>
+			<option value="">{$t("All Categories")}</option>
 			{#each categories as cat}
-				<option value={cat.id}>{cat.name} ({cat.document_count})</option>
+				<option value={cat.id}>{categoryName(cat, $locale)} ({$number(cat.document_count ?? 0)})</option>
 			{/each}
 		</select>
 	</div>
 
- {#if actionError}<p role="alert">{actionError}</p>{/if}
+ {#if actionError}<p role="alert">{$t(actionError)}</p>{/if}
 	{#if loading}
-		<div class="loading">Loading documents...</div>
+		<div class="loading">{$t("Loading documents...")}</div>
 	{:else if loadError}
-		<div class="empty">{loadError} <button class="link" onclick={loadDocuments}>Retry</button></div>
+		<div class="empty">{$t(loadError)} <button class="link" onclick={loadDocuments}>{$t("Retry")}</button></div>
 	{:else if documents.length === 0}
-		<div class="empty">No documents found.</div>
+		<div class="empty">{$t("No documents found.")}</div>
 	{:else}
 		<table>
 			<thead>
 				<tr>
-					<th>Name</th>
-					<th>Category</th>
-					<th>Size</th>
-					<th>Version</th>
-					<th>Uploaded</th>
-					<th>Actions</th>
+					<th>{$t("Name")}</th>
+					<th>{$t("Category")}</th>
+					<th>{$t("Size")}</th>
+					<th>{$t("Version")}</th>
+					<th>{$t("Uploaded")}</th>
+					<th>{$t("Actions")}</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -191,15 +189,15 @@
 								<span class="description">{doc.description}</span>
 							{/if}
 						</td>
-						<td>{doc.category_name ?? ''}</td>
+						<td>{categoryName({id:doc.category_id, name:doc.category_name ?? ''}, $locale)}</td>
 						<td>{formatSize(doc.file_size)}</td>
-						<td>v{doc.current_version}</td>
+						<td>{$t("v")}{$number(doc.current_version)}</td>
 						<td>{formatDate(doc.created_at)}</td>
 						<td>
-							<a class="btn-small" href="/documents/{doc.id}">View</a>
- {#if doc.mime_type === 'application/pdf'}<a class="btn-small" href="/documents/{doc.id}/preview" target="_blank" rel="noopener">Open PDF</a>{/if}
-       {#if doc.can_download}<button class="btn-small" onclick={() => downloadDoc(doc.id, doc.name)} disabled={downloading[doc.id]} aria-busy={downloading[doc.id] ?? false}>{#if downloading[doc.id]}<span class="spinner" aria-hidden="true"></span>Preparing…{:else}Download{/if}</button>{/if}
-       {#if canManage}<button class="btn-small" onclick={() => deleteDoc(doc)} disabled={!!deleting}>Delete document</button>{/if}
+							<a class="btn-small" href="/documents/{doc.id}">{$t("View")}</a>
+ {#if doc.mime_type === 'application/pdf'}<a class="btn-small" href="/documents/{doc.id}/preview" target="_blank" rel="noopener">{$t("Open PDF")}</a>{/if}
+       {#if doc.can_download}<button class="btn-small" onclick={() => downloadDoc(doc.id, doc.name)} disabled={downloading[doc.id]} aria-busy={downloading[doc.id] ?? false}>{#if downloading[doc.id]}<span class="spinner" aria-hidden="true"></span>{$t("Preparing…")}{:else}{$t("Download")}{/if}</button>{/if}
+       {#if canManage}<button class="btn-small" onclick={() => deleteDoc(doc)} disabled={!!deleting}>{$t("Delete document")}</button>{/if}
 						</td>
 					</tr>
 				{/each}
@@ -207,9 +205,9 @@
 		</table>
 			{#if !searchMode && totalPages > 1}
 				<div class="pagination">
-					<button class="page-btn" onclick={() => goToPage(page - 1)} disabled={page <= 1}>Previous</button>
-					<span class="page-info">Page {page} of {totalPages} · {total} documents</span>
-					<button class="page-btn" onclick={() => goToPage(page + 1)} disabled={page >= totalPages}>Next</button>
+					<button class="page-btn" onclick={() => goToPage(page - 1)} disabled={page <= 1}>{$t("Previous")}</button>
+					<span class="page-info">{$t('Page {page} of {total}', {page,total:totalPages})} · {$t('{count} documents', {count:total})}</span>
+					<button class="page-btn" onclick={() => goToPage(page + 1)} disabled={page >= totalPages}>{$t("Next")}</button>
 				</div>
 			{/if}
 	{/if}

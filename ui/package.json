@@ -15,7 +15,8 @@
     "lint": "eslint src/ tests/ --max-warnings=0",
     "lint:fix": "eslint src/ tests/ --fix",
     "predev": "node scripts/pdf-assets.mjs",
-    "prebuild": "node scripts/pdf-assets.mjs"
+    "prebuild": "node scripts/pdf-assets.mjs",
+    "test:i18n": "playwright test --config playwright.i18n.config.ts"
   },
   "dependencies": {
     "carbon-components-svelte": "^0.85.0",

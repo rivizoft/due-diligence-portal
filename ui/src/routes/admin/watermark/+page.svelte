@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t, number } from '$lib/i18n';
 	import { api } from '$api/client';
 
 	interface WatermarkConfig {
@@ -14,7 +15,7 @@
 	let loading = $state(true);
 	let saving = $state(false);
 	let message = $state('');
- let previewText = $derived(config?.text_template.replace(/\{\{(user_email|user_name|date|document_name)\}\}/g, (_, key: string) => ({ user_email: 'investor@example.com', user_name: 'Alex Investor', date: new Date().toISOString().slice(0, 10), document_name: 'Report.pdf' })[key as 'user_email' | 'user_name' | 'date' | 'document_name']) ?? '');
+ let previewText = $derived(config?.text_template.replace(/\{\{(user_email|user_name|date|document_name)\}\}/g, (_, key: string) => ({ user_email: 'investor@example.com', user_name: $t('Alex Investor'), date: new Date().toISOString().slice(0, 10), document_name: $t('Report.pdf') })[key as 'user_email' | 'user_name' | 'date' | 'document_name']) ?? '');
 
 	async function loadConfig() {
 		try {
@@ -52,58 +53,58 @@
 	$effect(() => { loadConfig(); });
 </script>
 
-<h1>Watermark Settings</h1>
-<p class="subtitle">Configure personal watermarks applied to PDF viewing and downloads. Originals are preserved.</p>
+<h1>{$t("Watermark Settings")}</h1>
+<p class="subtitle">{$t("Configure personal watermarks applied to PDF viewing and downloads. Originals are preserved.")}</p>
 
 {#if loading}
-	<p class="loading">Loading...</p>
+	<p class="loading">{$t("Loading...")}</p>
 {:else if !config}
-	<p>Failed to load watermark configuration.</p>
+	<p>{$t("Failed to load watermark configuration.")}</p>
 {:else}
 	{#if message}
-		<div class="message">{message}</div>
+		<div class="message">{$t(message)}</div>
 	{/if}
 
 	<section>
 		<div class="field toggle-field">
-			<label for="enabled">Enable Watermarks</label>
+			<label for="enabled">{$t("Enable Watermarks")}</label>
 			<input id="enabled" type="checkbox" bind:checked={config.enabled} />
-			<span class="toggle-label">{config.enabled ? 'Enabled' : 'Disabled'}</span>
+			<span class="toggle-label">{config.enabled ? $t("Enabled") : $t("Disabled")}</span>
 		</div>
 
 		<div class="field">
-			<label for="template">Text Template</label>
+			<label for="template">{$t("Text Template")}</label>
 			<input id="template" type="text" bind:value={config.text_template}
 				placeholder={'{{user_email}} - {{date}}'} />
-			<span class="hint">Variables: {'{{user_email}}'}, {'{{user_name}}'}, {'{{date}}'}, {'{{document_name}}'}</span>
+			<span class="hint">{$t("Variables:")} {'{{user_email}}'}, {'{{user_name}}'}, {'{{date}}'}, {'{{document_name}}'}</span>
 		</div>
 
 		<div class="field">
-			<label for="position">Position</label>
+			<label for="position">{$t("Position")}</label>
 			<select id="position" bind:value={config.position}>
-				<option value="diagonal">Diagonal</option>
-				<option value="top">Top</option>
-				<option value="bottom">Bottom</option>
-				<option value="center">Center</option>
+				<option value="diagonal">{$t("Diagonal")}</option>
+				<option value="top">{$t("Top")}</option>
+				<option value="bottom">{$t("Bottom")}</option>
+				<option value="center">{$t("Center")}</option>
 			</select>
 		</div>
 
 		<div class="row">
 			<div class="field">
-				<label for="opacity">Opacity</label>
+				<label for="opacity">{$t("Opacity")}</label>
 				<input id="opacity" type="range" min="0" max="1" step="0.05"
 					bind:value={config.opacity} />
-				<span class="value">{config.opacity}</span>
+				<span class="value">{$number(config.opacity)}</span>
 			</div>
 
 			<div class="field">
-				<label for="fontSize">Font Size</label>
+				<label for="fontSize">{$t("Font Size")}</label>
 				<input id="fontSize" type="number" min="6" max="72"
 					bind:value={config.font_size} />
 			</div>
 
 			<div class="field">
-				<label for="color">Color</label>
+				<label for="color">{$t("Color")}</label>
 				<div class="color-input">
 					<input type="color" bind:value={config.color} />
 					<input type="text" bind:value={config.color} />
@@ -112,18 +113,18 @@
 		</div>
 	</section>
 
-	<div class="preview" aria-label="Illustrative watermark preview">
-  <div class="sample-content"><strong>Sample document</strong><p>Confidential information</p><hr /><hr /><hr /><hr /></div>
+	<div class="preview" aria-label={$t("Illustrative watermark preview")}>
+  <div class="sample-content"><strong>{$t("Sample document")}</strong><p>{$t("Confidential information")}</p><hr /><hr /><hr /><hr /></div>
   {#if config.enabled}<div class="sample-watermark {config.position}" style:opacity={config.opacity} style:color={config.color} style:font-size={`${config.font_size * 0.6}px`}>{previewText}</div>{/if}
  </div>
- <p class="hint">Illustrative preview. PDF font and layout may differ. Dates use UTC (YYYY-MM-DD).</p>
- <p class="hint">View-only users receive page images with the watermark. Screenshots remain possible. Applying a watermark can invalidate a PDF digital signature.</p>
+ <p class="hint">{$t("Illustrative preview. PDF font and layout may differ. Dates use UTC (YYYY-MM-DD).")}</p>
+ <p class="hint">{$t("View-only users receive page images with the watermark. Screenshots remain possible. Applying a watermark can invalidate a PDF digital signature.")}</p>
 
 	<div class="actions">
 		<button class="btn-primary" onclick={saveConfig} disabled={saving}>
-			{saving ? 'Saving...' : 'Save Settings'}
+			{saving ? $t("Saving...") : $t("Save Settings")}
 		</button>
-		<button class="btn-secondary" onclick={resetConfig}>Reset to Defaults</button>
+		<button class="btn-secondary" onclick={resetConfig}>{$t("Reset to Defaults")}</button>
 	</div>
 {/if}
 

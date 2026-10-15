@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import { api } from '$api/client';
 	import { authStore } from '$stores/authStore.svelte';
 
@@ -53,25 +54,25 @@
 
 <main>
 	<div class="login-container">
-		<h1>Sign In</h1>
+		<h1>{$t("Sign In")}</h1>
 
 		{#if error}
-			<div class="error-msg">{error}</div>
+			<div class="error-msg">{$t(error)}</div>
 		{/if}
 
 		<form onsubmit={handleLogin}>
 			<div class="field">
-				<label for="email">Email</label>
-				<input id="email" type="email" placeholder="Enter your email"
+				<label for="email">{$t("Email")}</label>
+				<input id="email" type="email" placeholder={$t("Enter your email")}
 					bind:value={email} required autocomplete="email" />
 			</div>
 			<div class="field">
-				<label for="password">Password</label>
-				<input id="password" type="password" placeholder="Enter your password"
+				<label for="password">{$t("Password")}</label>
+				<input id="password" type="password" placeholder={$t("Enter your password")}
 					bind:value={password} required autocomplete="current-password" />
 			</div>
 			<button type="submit" class="btn-primary" disabled={loading}>
-				{loading ? 'Signing in...' : 'Sign In'}
+				{loading ? $t("Signing in...") : $t("Sign In")}
 			</button>
 		</form>
 	</div>
@@ -82,7 +83,7 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		min-height: 100vh;
+		min-height: 0;
 	}
 
 	.login-container {

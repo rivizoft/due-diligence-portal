@@ -71,3 +71,10 @@ describe('authenticated binary', () => {
   await expect(api.binary('/documents/d/preview',{signal:controller.signal})).rejects.toThrow('aborted');expect(fetcher.mock.calls[0][1].signal).toBe(controller.signal);
  });
 });
+
+describe('localized API diagnostics', () => {
+ it('uses the action fallback for an unknown upstream diagnostic', () => {
+  const err = new ApiError(503, 'Unavailable', {error:'upstream provider diagnostic'});
+  expect(apiErrorMessage(err, 'Failed to save storage settings.')).toBe('Failed to save storage settings.');
+ });
+});

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { type LocalizedText, t, locale, categoryName, categoryDescription , number } from '$lib/i18n';
 	import type { Category } from '$types/api';
 	import { api, apiErrorMessage } from '$api/client';
 
@@ -8,7 +9,7 @@
 	let newName = $state('');
 	let newSlug = $state('');
 	let newDescription = $state('');
-	let message = $state('');
+	let message = $state<LocalizedText>('');
  let deleting = $state('');
 
 	async function loadCategories() {
@@ -27,7 +28,7 @@
  }
 
  async function deleteCategory(cat: Category) {
-  if (deleting || !confirm(`Delete category "${cat.name}"? Categories with documents or subcategories cannot be deleted.`)) return;
+  if (deleting || !confirm($t('Delete category "{name}"? Categories with documents or subcategories cannot be deleted.', {name:categoryName(cat, $locale)}))) return;
   deleting = cat.id;
   message = '';
   try {
@@ -65,49 +66,49 @@
 	$effect(() => { loadCategories(); });
 </script>
 
-<h1>Categories</h1>
+<h1>{$t("Categories")}</h1>
 
 <div class="actions">
 	<button class="btn-primary" onclick={() => (showAdd = !showAdd)}>
-		{showAdd ? 'Cancel' : 'Add Category'}
+		{showAdd ? $t("Cancel") : $t("Add Category")}
 	</button>
 </div>
 
 {#if message}
-	<div class="message">{message}</div>
+	<div class="message">{$t(message)}</div>
 {/if}
 
 {#if showAdd}
 	<div class="add-form">
 		<div class="form-row">
-			<input type="text" placeholder="Category name" bind:value={newName} oninput={autoSlug} />
-			<input type="text" placeholder="slug (auto)" bind:value={newSlug} />
+			<input type="text" placeholder={$t("Category name")} bind:value={newName} oninput={autoSlug} />
+			<input type="text" placeholder={$t("slug (auto)")} bind:value={newSlug} />
 		</div>
-		<input type="text" placeholder="Description" bind:value={newDescription} class="full-width" />
-		<button class="btn-primary" onclick={addCategory}>Create</button>
+		<input type="text" placeholder={$t("Description")} bind:value={newDescription} class="full-width" />
+		<button class="btn-primary" onclick={addCategory}>{$t("Create")}</button>
 	</div>
 {/if}
 
 {#if loading}
-	<p class="loading">Loading categories...</p>
+	<p class="loading">{$t("Loading categories...")}</p>
 {:else}
 	<table>
 		<thead>
 			<tr>
-				<th>Name</th>
-				<th>Slug</th>
-				<th>Description</th>
-				<th>Order</th><th>Actions</th>
+				<th>{$t("Name")}</th>
+				<th>{$t("Slug")}</th>
+				<th>{$t("Description")}</th>
+				<th>{$t("Order")}</th><th>{$t("Actions")}</th>
 			</tr>
 		</thead>
 		<tbody>
 			{#each categories as cat}
 				<tr>
-					<td>{cat.name}</td>
+					<td>{categoryName(cat, $locale)}</td>
 					<td class="mono">{cat.slug}</td>
-					<td class="desc">{cat.description ?? ''}</td>
-					<td>{cat.sort_order}</td>
-     <td><button class="btn-delete" onclick={() => deleteCategory(cat)} disabled={!!deleting || (cat.document_count ?? 0) > 0 || (cat.children?.length ?? 0) > 0} title="Delete documents and subcategories first">Delete category</button></td>
+					<td class="desc">{categoryDescription(cat, $locale)}</td>
+					<td>{$number(cat.sort_order)}</td>
+     <td><button class="btn-delete" onclick={() => deleteCategory(cat)} disabled={!!deleting || (cat.document_count ?? 0) > 0 || (cat.children?.length ?? 0) > 0} title={$t("Delete documents and subcategories first")}>{$t("Delete category")}</button></td>
 				</tr>
 			{/each}
 		</tbody>

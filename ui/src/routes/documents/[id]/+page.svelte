@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { formatFileSize } from '$lib/utils/format';
+	import { type LocalizedText, t, locale, intlLocale, categoryName, number } from '$lib/i18n';
 	import type { Document, DocumentVersion } from '$types/api';
 	import { api, apiErrorMessage } from '$api/client';
  import { goto } from '$app/navigation';
@@ -7,8 +9,8 @@
 	let doc = $state<Document | null>(null);
 	let versions = $state<DocumentVersion[]>([]);
 	let loading = $state(true);
-	let error = $state('');
-	let downloadError = $state('');
+	let error = $state<LocalizedText>('');
+	let downloadError = $state<LocalizedText>('');
  let downloading = $state<Record<string, boolean>>({});
  let canDownload = $state(false);
  let canManage = $state(false);
@@ -16,7 +18,7 @@
  let file = $state<File | null>(null);
  let fileInput = $state<HTMLInputElement>();
  let changeNote = $state('');
- let actionError = $state('');
+ let actionError = $state<LocalizedText>('');
  let selectedVersion = $state(0);
  let previewVersion = $derived(versions.find(v => v.version_number === selectedVersion));
 
@@ -70,7 +72,7 @@
  }
 
  async function deleteVersion(number: number) {
-  if (busy || !canManage || !confirm(`Delete version ${number}? This cannot be undone.`)) return;
+  if (busy || !canManage || !confirm($t('Delete version {version}? This cannot be undone.', {version:number}))) return;
   busy = true;
   actionError = '';
   const id = docId;
@@ -82,7 +84,7 @@
  }
 
  async function deleteDocument() {
-  if (busy || !canManage || !confirm(`Delete "${doc?.name}" and remove access to all its versions?`)) return;
+  if (busy || !canManage || !confirm($t('Delete "{name}" and remove access to all its versions?', {name:doc?.name ?? ''}))) return;
   busy = true;
   actionError = '';
   try {
@@ -92,14 +94,10 @@
   finally { busy = false; }
  }
 
-	function formatSize(bytes: number): string {
-		if (bytes < 1024) return `${bytes} B`;
-		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-	}
+	function formatSize(bytes: number): string { return formatFileSize(bytes, $locale); }
 
 	function formatDate(iso: string): string {
-		return new Date(iso).toLocaleString('en-US', {
+		return new Date(iso).toLocaleString(intlLocale($locale), {
 			year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
 		});
 	}
@@ -110,70 +108,70 @@
 </script>
 
 <div class="page">
-	<a href="/documents" class="back">&larr; Back to Documents</a>
+	<a href="/documents" class="back">{$t("← Back to Documents")}</a>
 
 	{#if loading}
-		<p class="loading">Loading…</p>
+		<p class="loading">{$t("Loading…")}</p>
 	{:else if error}
-		<p class="empty">{error}</p>
+		<p class="empty">{$t(error)}</p>
 	{:else if doc}
 		<header class="doc-header">
 			<h1>{doc.name}</h1>
 			<div class="header-actions">
-    {#if canDownload}<button class="btn-primary" onclick={downloadCurrent} disabled={busy || downloading.current} aria-busy={downloading.current ?? false}>{#if downloading.current}<span class="spinner" aria-hidden="true"></span>Preparing…{:else}Download{/if}</button>{/if}
-    {#if canManage}<button class="btn-small danger" onclick={deleteDocument} disabled={busy}>Delete document</button>{/if}
+    {#if canDownload}<button class="btn-primary" onclick={downloadCurrent} disabled={busy || downloading.current} aria-busy={downloading.current ?? false}>{#if downloading.current}<span class="spinner" aria-hidden="true"></span>{$t("Preparing…")}{:else}{$t("Download")}{/if}</button>{/if}
+    {#if canManage}<button class="btn-small danger" onclick={deleteDocument} disabled={busy}>{$t("Delete document")}</button>{/if}
    </div>
 		</header>
 
-		{#if actionError}<div class="error-msg" role="alert">{actionError}</div>{/if}
-  {#if downloadError}<div class="error-msg">{downloadError}</div>{/if}
+		{#if actionError}<div class="error-msg" role="alert">{$t(actionError)}</div>{/if}
+  {#if downloadError}<div class="error-msg">{$t(downloadError)}</div>{/if}
 		{#if doc.description}<p class="description">{doc.description}</p>{/if}
 
 		<dl class="meta">
-			<div><dt>Category</dt><dd>{doc.category_name ?? '—'}</dd></div>
-			<div><dt>Current version</dt><dd>v{doc.current_version}</dd></div>
-			<div><dt>Size</dt><dd>{formatSize(doc.file_size)}</dd></div>
-			<div><dt>Type</dt><dd>{doc.mime_type}</dd></div>
-			<div><dt>Uploaded by</dt><dd>{doc.uploader_name ?? '—'}</dd></div>
-			<div><dt>Uploaded</dt><dd>{formatDate(doc.created_at)}</dd></div>
-			{#if doc.tags}<div><dt>Tags</dt><dd>{doc.tags}</dd></div>{/if}
+			<div><dt>{$t("Category")}</dt><dd>{categoryName({id:doc.category_id, name:doc.category_name ?? '—'}, $locale)}</dd></div>
+			<div><dt>{$t("Current version")}</dt><dd>{$t("v")}{$number(doc.current_version)}</dd></div>
+			<div><dt>{$t("Size")}</dt><dd>{formatSize(doc.file_size)}</dd></div>
+			<div><dt>{$t("Type")}</dt><dd>{doc.mime_type}</dd></div>
+			<div><dt>{$t("Uploaded by")}</dt><dd>{doc.uploader_name ?? '—'}</dd></div>
+			<div><dt>{$t("Uploaded")}</dt><dd>{formatDate(doc.created_at)}</dd></div>
+			{#if doc.tags}<div><dt>{$t("Tags")}</dt><dd>{doc.tags}</dd></div>{/if}
 		</dl>
 
   {#if previewVersion?.mime_type === 'application/pdf'}
-   <h2>PDF preview — v{selectedVersion}</h2>
-   <a class="btn-small" href="/documents/{docId}/preview?version={selectedVersion}" target="_blank" rel="noopener">Open PDF</a>
+   <h2>{$t("PDF preview — v")}{$number(selectedVersion)}</h2>
+   <a class="btn-small" href="/documents/{docId}/preview?version={selectedVersion}" target="_blank" rel="noopener">{$t("Open PDF")}</a>
   {:else}
-   <p class="description">Preview is available for PDF files only.</p>
+   <p class="description">{$t("Preview is available for PDF files only.")}</p>
   {/if}
 
   {#if canManage}
-   <h2>Upload new version</h2>
+   <h2>{$t("Upload new version")}</h2>
    <form class="version-form" onsubmit={uploadVersion}>
-    <label>Updated file <input type="file" bind:this={fileInput} onchange={(event) => file = event.currentTarget.files?.[0] ?? null} required disabled={busy} /></label>
-    <label>Change note <input type="text" bind:value={changeNote} disabled={busy} /></label>
-    <button class="btn-primary" type="submit" disabled={busy || !file}>{busy ? 'Saving…' : 'Upload new version'}</button>
+    <label>{$t("Updated file")} <input type="file" bind:this={fileInput} onchange={(event) => file = event.currentTarget.files?.[0] ?? null} required disabled={busy} /></label>
+    <label>{$t("Change note")} <input type="text" bind:value={changeNote} disabled={busy} /></label>
+    <button class="btn-primary" type="submit" disabled={busy || !file}>{busy ? $t("Saving…") : $t("Upload new version")}</button>
    </form>
   {/if}
 
-		<h2>Version history</h2>
+		<h2>{$t("Version history")}</h2>
 		{#if versions.length === 0}
-			<p class="empty">No versions recorded.</p>
+			<p class="empty">{$t("No versions recorded.")}</p>
 		{:else}
 			<table>
 				<thead>
-					<tr><th>Version</th><th>Size</th><th>Change note</th><th>Date</th><th></th></tr>
+					<tr><th>{$t("Version")}</th><th>{$t("Size")}</th><th>{$t("Change note")}</th><th>{$t("Date")}</th><th></th></tr>
 				</thead>
 				<tbody>
 					{#each versions as v}
 						<tr>
-							<td>v{v.version_number}{v.version_number === doc.current_version ? ' (current)' : ''}</td>
+							<td>{$t("v")}{$number(v.version_number)}{v.version_number === doc.current_version ? $t(" (current)") : ''}</td>
 							<td>{formatSize(v.file_size)}</td>
 							<td>{v.change_note ?? '—'}</td>
 							<td>{formatDate(v.created_at)}</td>
 							<td class="version-actions">
-        {#if v.mime_type === 'application/pdf'}<button class="btn-small" onclick={() => selectedVersion = v.version_number} disabled={busy}>View</button>{/if}
-        {#if canDownload}<button class="btn-small" onclick={() => downloadVersion(v.version_number)} disabled={busy || downloading[String(v.version_number)]} aria-busy={downloading[String(v.version_number)] ?? false}>{#if downloading[String(v.version_number)]}<span class="spinner" aria-hidden="true"></span>Preparing…{:else}Download{/if}</button>{/if}
-        {#if canManage}<button class="btn-small danger" onclick={() => deleteVersion(v.version_number)} disabled={busy || versions.length <= 1} title={versions.length <= 1 ? 'The last version cannot be deleted. Delete the document instead.' : 'Delete this version'}>Delete version</button>{/if}
+        {#if v.mime_type === 'application/pdf'}<button class="btn-small" onclick={() => selectedVersion = v.version_number} disabled={busy}>{$t("View")}</button>{/if}
+        {#if canDownload}<button class="btn-small" onclick={() => downloadVersion(v.version_number)} disabled={busy || downloading[String(v.version_number)]} aria-busy={downloading[String(v.version_number)] ?? false}>{#if downloading[String(v.version_number)]}<span class="spinner" aria-hidden="true"></span>{$t("Preparing…")}{:else}{$t("Download")}{/if}</button>{/if}
+        {#if canManage}<button class="btn-small danger" onclick={() => deleteVersion(v.version_number)} disabled={busy || versions.length <= 1} title={versions.length <= 1 ? $t("The last version cannot be deleted. Delete the document instead.") : $t("Delete this version")}>{$t("Delete version")}</button>{/if}
        </td>
 						</tr>
 					{/each}

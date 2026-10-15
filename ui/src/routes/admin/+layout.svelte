@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import type { Snippet } from 'svelte';
 	import { page } from '$app/state';
 
@@ -8,16 +9,16 @@
 
 <div class="admin-layout">
 	<nav class="admin-nav">
-		<h2>Admin</h2>
+		<h2>{$t("Admin")}</h2>
 		<ul>
-			<li><a href="/admin/users" class:active={currentPath.startsWith('/admin/users')}>Users</a></li>
-			<li><a href="/admin/permissions" class:active={currentPath.startsWith('/admin/permissions')}>Access Grants</a></li>
-			<li><a href="/admin/categories" class:active={currentPath.startsWith('/admin/categories')}>Categories</a></li>
-			<li><a href="/admin/branding" class:active={currentPath.startsWith('/admin/branding')}>Branding</a></li>
-			<li><a href="/admin/watermark" class:active={currentPath.startsWith('/admin/watermark')}>Watermark</a></li>
-			<li><a href="/admin/storage" class:active={currentPath.startsWith('/admin/storage')}>Storage</a></li>
-			<li><a href="/admin/nda" class:active={currentPath.startsWith('/admin/nda')}>NDA Templates</a></li>
-			<li><a href="/activity" class:active={currentPath.startsWith('/activity')}>Activity Log</a></li>
+			<li><a href="/admin/users" class:active={currentPath.startsWith('/admin/users')}>{$t("Users")}</a></li>
+			<li><a href="/admin/permissions" class:active={currentPath.startsWith('/admin/permissions')}>{$t("Access Grants")}</a></li>
+			<li><a href="/admin/categories" class:active={currentPath.startsWith('/admin/categories')}>{$t("Categories")}</a></li>
+			<li><a href="/admin/branding" class:active={currentPath.startsWith('/admin/branding')}>{$t("Branding")}</a></li>
+			<li><a href="/admin/watermark" class:active={currentPath.startsWith('/admin/watermark')}>{$t("Watermark")}</a></li>
+			<li><a href="/admin/storage" class:active={currentPath.startsWith('/admin/storage')}>{$t("Storage")}</a></li>
+			<li><a href="/admin/nda" class:active={currentPath.startsWith('/admin/nda')}>{$t("NDA Templates")}</a></li>
+			<li><a href="/activity" class:active={currentPath.startsWith('/activity')}>{$t("Activity Log")}</a></li>
 		</ul>
 	</nav>
 
@@ -29,7 +30,7 @@
 <style>
 	.admin-layout {
 		display: flex;
-		min-height: calc(100vh - 48px);
+		min-height: 0;
 	}
 
 	.admin-nav {
@@ -77,7 +78,16 @@
 
 	.admin-content {
 		flex: 1;
+		min-width: 0;
+		overflow-x: auto;
 		padding: 2rem;
 		max-width: 1000px;
+	}
+	@media (max-width: 800px) {
+		.admin-layout { flex-direction: column; }
+		.admin-nav { width: 100%; padding: 0.75rem 0; border-right: 0; border-bottom: 1px solid var(--dd-border); }
+		.admin-nav ul { display: flex; flex-wrap: wrap; }
+		.admin-nav li a { padding: 0.5rem 0.75rem; }
+		.admin-content { padding: 1rem; }
 	}
 </style>

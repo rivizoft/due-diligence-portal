@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t, locale, intlLocale } from '$lib/i18n';
 	import type { QAThread, QAMessage } from '$types/api';
 	import { api } from '$api/client';
 	import { page } from '$app/state';
@@ -58,7 +59,7 @@
 	}
 
 	function formatDate(iso: string): string {
-		return new Date(iso).toLocaleString('en-US', {
+		return new Date(iso).toLocaleString(intlLocale($locale), {
 			month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
 		});
 	}
@@ -69,38 +70,38 @@
 </script>
 
 <div class="page">
-	<a href="/qa" class="back">&larr; Back to Q&amp;A</a>
+	<a href="/qa" class="back">{$t("← Back to Q&A")}</a>
 
 	{#if loading}
-		<p class="loading">Loading…</p>
+		<p class="loading">{$t("Loading…")}</p>
 	{:else if error && !thread}
-		<p class="empty">{error}</p>
+		<p class="empty">{$t(error)}</p>
 	{:else if thread}
 		<header class="thread-header">
 			<h1>{thread.subject}</h1>
-			<span class="status status-{thread.status}">{thread.status}</span>
+			<span class="status status-{thread.status}">{$t(thread.status)}</span>
 		</header>
 
 		{#if isStaff}
 			<div class="status-actions">
-				<span>Set status:</span>
-				<button onclick={() => changeStatus('open')} disabled={thread.status === 'open'}>Open</button>
-				<button onclick={() => changeStatus('answered')} disabled={thread.status === 'answered'}>Answered</button>
-				<button onclick={() => changeStatus('closed')} disabled={thread.status === 'closed'}>Closed</button>
+				<span>{$t("Set status:")}</span>
+				<button onclick={() => changeStatus('open')} disabled={thread.status === 'open'}>{$t("Open")}</button>
+				<button onclick={() => changeStatus('answered')} disabled={thread.status === 'answered'}>{$t("Answered")}</button>
+				<button onclick={() => changeStatus('closed')} disabled={thread.status === 'closed'}>{$t("Closed")}</button>
 			</div>
 		{/if}
 
-		{#if error}<div class="error-msg">{error}</div>{/if}
+		{#if error}<div class="error-msg">{$t(error)}</div>{/if}
 
 		<div class="messages">
 			{#if messages.length === 0}
-				<p class="empty">No messages yet.</p>
+				<p class="empty">{$t("No messages yet.")}</p>
 			{:else}
 				{#each messages as msg}
 					<div class="message" class:internal={msg.is_internal}>
 						<div class="message-head">
-							<span class="author">{msg.author_name ?? msg.author_email ?? 'User'}</span>
-							{#if msg.is_internal}<span class="badge">Internal</span>{/if}
+							<span class="author">{msg.author_name ?? msg.author_email ?? $t("User")}</span>
+							{#if msg.is_internal}<span class="badge">{$t("Internal")}</span>{/if}
 							<span class="date">{formatDate(msg.created_at)}</span>
 						</div>
 						<p class="body">{msg.body}</p>
@@ -110,17 +111,17 @@
 		</div>
 
 		<form class="reply-form" onsubmit={postReply}>
-			<label for="reply">Reply</label>
-			<textarea id="reply" bind:value={reply} rows="3" placeholder="Write a reply…" required></textarea>
+			<label for="reply">{$t("Reply")}</label>
+			<textarea id="reply" bind:value={reply} rows="3" placeholder={$t("Write a reply…")} required></textarea>
 			<div class="reply-actions">
 				{#if isStaff}
 					<label class="internal-toggle">
 						<input type="checkbox" bind:checked={postInternal} />
-						Internal note (not visible to investors)
+						{$t("Internal note (not visible to investors)")}
 					</label>
 				{/if}
 				<button type="submit" class="btn-primary" disabled={posting}>
-					{posting ? 'Posting…' : 'Post Reply'}
+					{posting ? $t("Posting…") : $t("Post Reply")}
 				</button>
 			</div>
 		</form>
