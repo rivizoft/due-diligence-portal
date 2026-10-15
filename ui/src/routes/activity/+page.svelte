@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t, locale, intlLocale } from '$lib/i18n';
 	import { onMount } from 'svelte';
 	import type { AuditEntry } from '$types/api';
 	import { api } from '$api/client';
@@ -54,7 +55,7 @@
 	}
 
 	function formatDate(iso: string): string {
-		return new Date(iso).toLocaleString('en-US', {
+		return new Date(iso).toLocaleString(intlLocale($locale), {
 			month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
 		});
 	}
@@ -64,46 +65,46 @@
 
 <div class="page">
 	<header class="page-header">
-		<h1>Activity Log</h1>
-		<button class="btn-secondary" onclick={exportCsv}>Export CSV</button>
+		<h1>{$t("Activity Log")}</h1>
+		<button class="btn-secondary" onclick={exportCsv}>{$t("Export CSV")}</button>
 	</header>
 
 	<div class="filters">
 		<select bind:value={filterAction} onchange={onFilterChange}>
-			<option value="">All Actions</option>
-			<option value="user.login">User Login</option>
-			<option value="user.created">User Created</option>
-			<option value="user.password_set">Password Set</option>
-			<option value="document.uploaded">Document Upload</option>
-			<option value="document.downloaded">Document Download</option>
-			<option value="document.viewed">Document View</option>
-			<option value="document.new_version">New Version</option>
-			<option value="permission.granted">Permission Granted</option>
-			<option value="permission.revoked">Permission Revoked</option>
-			<option value="qa.message_posted">Q&amp;A Message</option>
-			<option value="nda.signed">NDA Signed</option>
+			<option value="">{$t("All Actions")}</option>
+			<option value="user.login">{$t("User Login")}</option>
+			<option value="user.created">{$t("User Created")}</option>
+			<option value="user.password_set">{$t("Password Set")}</option>
+			<option value="document.uploaded">{$t("Document Upload")}</option>
+			<option value="document.downloaded">{$t("Document Download")}</option>
+			<option value="document.viewed">{$t("Document View")}</option>
+			<option value="document.new_version">{$t("New Version")}</option>
+			<option value="permission.granted">{$t("Permission Granted")}</option>
+			<option value="permission.revoked">{$t("Permission Revoked")}</option>
+			<option value="qa.message_posted">{$t("Q&A Message")}</option>
+			<option value="nda.signed">{$t("NDA Signed")}</option>
 		</select>
 	</div>
 
 	{#if loading}
-		<p class="loading">Loading activity...</p>
+		<p class="loading">{$t("Loading activity...")}</p>
 	{:else if loadError}
-		<p class="empty">{loadError} <button class="link" onclick={loadAudit}>Retry</button></p>
+		<p class="empty">{$t(loadError)} <button class="link" onclick={loadAudit}>{$t("Retry")}</button></p>
 	{:else if entries.length === 0}
-		<p class="empty">No activity recorded.</p>
+		<p class="empty">{$t("No activity recorded.")}</p>
 	{:else}
 		<table>
 			<thead>
-				<tr><th>Time</th><th>User</th><th>Action</th><th>Resource</th><th>Details</th><th>IP</th></tr>
+				<tr><th>{$t("Time")}</th><th>{$t("User")}</th><th>{$t("Action")}</th><th>{$t("Resource")}</th><th>{$t("Details")}</th><th>{$t("IP")}</th></tr>
 			</thead>
 			<tbody>
 				{#each entries as entry}
 					<tr>
 						<td>{formatDate(entry.created_at)}</td>
 						<td>{entry.user_email}</td>
-						<td><span class="action-badge">{entry.action}</span></td>
+						<td><span class="action-badge">{$t(entry.action)}</span></td>
 						<td>{entry.resource_name ?? entry.resource_id ?? ''}</td>
-						<td class="details">{entry.details ?? ''}</td>
+						<td class="details">{$t(entry.details ?? '')}</td>
 						<td class="mono">{entry.ip_address ?? ''}</td>
 					</tr>
 				{/each}
@@ -112,9 +113,9 @@
 
 		{#if totalPages > 1}
 			<div class="pagination">
-				<button class="page-btn" onclick={() => goToPage(page - 1)} disabled={page <= 1}>Previous</button>
-				<span class="page-info">Page {page} of {totalPages} · {total} entries</span>
-				<button class="page-btn" onclick={() => goToPage(page + 1)} disabled={page >= totalPages}>Next</button>
+				<button class="page-btn" onclick={() => goToPage(page - 1)} disabled={page <= 1}>{$t("Previous")}</button>
+				<span class="page-info">{$t('Page {page} of {total}', {page,total:totalPages})} · {$t('{count} entries', {count:total})}</span>
+				<button class="page-btn" onclick={() => goToPage(page + 1)} disabled={page >= totalPages}>{$t("Next")}</button>
 			</div>
 		{/if}
 	{/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { msg, type LocalizedText, t, locale, intlLocale } from '$lib/i18n';
 	import { tick } from 'svelte';
 	import type { User, InviteToken, SetPasswordResponse } from '$types/api';
 	import { api, apiErrorMessage } from '$api/client';
@@ -14,16 +15,16 @@
 	let inviteRole = $state('investor');
 	let inviteMessage = $state('');
 	let inviteLink = $state('');
-	let actionError = $state('');
+	let actionError = $state<LocalizedText>('');
 
 	// Set-password form state. Only one inline form is open at a time (keyed by user id).
 	let passwordUserId = $state<string | null>(null);
 	let currentPassword = $state('');
 	let newPassword = $state('');
 	let confirmPassword = $state('');
-	let passwordError = $state('');
+	let passwordError = $state<LocalizedText>('');
 	let passwordSaving = $state(false);
-	let passwordMessage = $state('');
+	let passwordMessage = $state<LocalizedText>('');
 	// The user row the success message belongs to; the confirmation is shown beside it.
 	let passwordMessageUserId = $state<string | null>(null);
 
@@ -92,7 +93,7 @@
 			await api.put(`/users/${user.id}`, { is_active: active });
 			await loadUsers();
 		} catch {
-			actionError = `Failed to ${active ? 'enable' : 'disable'} ${user.email}.`;
+			actionError = msg(active ? 'Failed to enable {email}.' : 'Failed to disable {email}.', {email:user.email});
 		}
 	}
 
@@ -103,7 +104,7 @@
 			await api.put(`/users/${user.id}`, { role });
 			await loadUsers();
 		} catch {
-			actionError = `Failed to change role for ${user.email}.`;
+			actionError = msg('Failed to change role for {email}.', {email:user.email});
 		}
 	}
 
@@ -175,11 +176,11 @@
 			resetPasswordForm();
 			passwordMessage = isSelf
 				? 'Your password has been updated.'
-				: `Password updated for ${user.email}. Share it with them through a secure channel.`;
+				: msg('Password updated for {email}. Share it with them through a secure channel.', {email:user.email});
 			passwordMessageUserId = user.id;
 			updated = true;
 		} catch (err) {
-			passwordError = apiErrorMessage(err, `Failed to set password for ${user.email}.`);
+			passwordError = apiErrorMessage(err, msg('Failed to set password for {email}.', {email:user.email}));
 		} finally {
 			passwordSaving = false;
 		}
@@ -188,8 +189,8 @@
 	}
 
 	function formatDate(iso: string | undefined): string {
-		if (!iso) return 'Never';
-		return new Date(iso).toLocaleDateString('en-US', {
+		if (!iso) return $t('Never');
+		return new Date(iso).toLocaleDateString(intlLocale($locale), {
 			month: 'short', day: 'numeric', year: 'numeric'
 		});
 	}
@@ -197,52 +198,52 @@
 	$effect(() => { loadUsers(); loadInvites(); });
 </script>
 
-<h1>Users</h1>
+<h1>{$t("Users")}</h1>
 
 <div class="actions">
 	<button class="btn-primary" onclick={() => (showInvite = !showInvite)}>
-		{showInvite ? 'Cancel' : 'Invite User'}
+		{showInvite ? $t("Cancel") : $t("Invite User")}
 	</button>
 </div>
 
 {#if inviteMessage}
 	<div class="message">
-		{inviteMessage}
+		{$t(inviteMessage)}
 		{#if inviteLink}<div class="invite-link">{inviteLink}</div>{/if}
 	</div>
 {/if}
 <!-- Always in the DOM so screen readers announce password updates when the text
      changes. Sighted users see the confirmation beside the user's row. -->
-<div class="visually-hidden" role="status">{passwordMessage}</div>
-{#if actionError}<div class="error-msg">{actionError}</div>{/if}
+<div class="visually-hidden" role="status">{$t(passwordMessage)}</div>
+{#if actionError}<div class="error-msg">{$t(actionError)}</div>{/if}
 
 {#if showInvite}
 	<form class="invite-form" onsubmit={sendInvite}>
-		<input type="email" placeholder="Email address" bind:value={inviteEmail} required aria-label="Invite email" />
-		<select bind:value={inviteRole} aria-label="Invite role">
-			<option value="investor">Investor</option>
-			<option value="company_member">Company Member</option>
+		<input type="email" placeholder={$t("Email address")} bind:value={inviteEmail} required aria-label={$t("Invite email")} />
+		<select bind:value={inviteRole} aria-label={$t("Invite role")}>
+			<option value="investor">{$t("Investor")}</option>
+			<option value="company_member">{$t("Company Member")}</option>
 		</select>
-		<button class="btn-primary" type="submit">Send Invite</button>
+		<button class="btn-primary" type="submit">{$t("Send Invite")}</button>
 	</form>
 {/if}
 
 {#if invites.length > 0}
 	<section class="invites">
-		<h2>Pending Invitations ({invites.length})</h2>
-		<p class="hint">These people have been invited but haven't registered yet. Share the registration link with them.</p>
+		<h2>{$t('Pending Invitations ({count})', {count:invites.length})}</h2>
+		<p class="hint">{$t("These people have been invited but haven't registered yet. Share the registration link with them.")}</p>
 		<table>
 			<thead>
-				<tr><th>Email</th><th>Role</th><th>Expires</th><th>Registration link</th><th>Actions</th></tr>
+				<tr><th>{$t("Email")}</th><th>{$t("Role")}</th><th>{$t("Expires")}</th><th>{$t("Registration link")}</th><th>{$t("Actions")}</th></tr>
 			</thead>
 			<tbody>
 				{#each invites as inv}
 					<tr>
 						<td>{inv.email}</td>
-						<td><span class="role-badge">{inv.role.replace('_', ' ')}</span></td>
+						<td><span class="role-badge">{$t(inv.role.replace('_', ' '))}</span></td>
 						<td>{formatDate(inv.expires_at)}</td>
 						<td class="link-cell">{registerLink(inv.token)}</td>
-						<td><button class="btn-small danger" onclick={() => revokeInvite(inv.id)}>Revoke</button></td>
+						<td><button class="btn-small danger" onclick={() => revokeInvite(inv.id)}>{$t("Revoke")}</button></td>
 					</tr>
 				{/each}
 			</tbody>
@@ -251,21 +252,21 @@
 {/if}
 
 {#if loading}
-	<p class="loading">Loading users...</p>
+	<p class="loading">{$t("Loading users...")}</p>
 {:else if loadError}
-	<p class="error-msg">{loadError} <button class="link" onclick={loadUsers}>Retry</button></p>
+	<p class="error-msg">{$t(loadError)} <button class="link" onclick={loadUsers}>{$t("Retry")}</button></p>
 {:else if users.length === 0}
-	<p class="empty">No users found.</p>
+	<p class="empty">{$t("No users found.")}</p>
 {:else}
 	<table>
 		<thead>
 			<tr>
-				<th>Name</th>
-				<th>Email</th>
-				<th>Role</th>
-				<th>Status</th>
-				<th>Last Login</th>
-				<th>Actions</th>
+				<th>{$t("Name")}</th>
+				<th>{$t("Email")}</th>
+				<th>{$t("Role")}</th>
+				<th>{$t("Status")}</th>
+				<th>{$t("Last Login")}</th>
+				<th>{$t("Actions")}</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -276,23 +277,23 @@
 					<td>{user.email}</td>
 					<td>
 						{#if isSelf}
-							<span class="role-badge">{user.role.replace('_', ' ')}</span>
+							<span class="role-badge">{$t(user.role.replace('_', ' '))}</span>
 						{:else}
 							<select
 								class="role-select"
 								value={user.role}
-								aria-label="Role for {user.email}"
+								aria-label={$t('Role for {email}', {email:user.email})}
 								onchange={(e) => changeRole(user, (e.currentTarget as HTMLSelectElement).value)}
 							>
-								<option value="investor">investor</option>
-								<option value="company_member">company member</option>
-								<option value="admin">admin</option>
+								<option value="investor">{$t("investor")}</option>
+								<option value="company_member">{$t("company member")}</option>
+								<option value="admin">{$t("admin")}</option>
 							</select>
 						{/if}
 					</td>
 					<td>
 						<span class="status" class:active={user.is_active} class:disabled={!user.is_active}>
-							{user.is_active ? 'Active' : 'Disabled'}
+							{user.is_active ? $t("Active") : $t("Disabled")}
 						</span>
 					</td>
 					<td>{formatDate(user.last_login_at)}</td>
@@ -305,13 +306,13 @@
 								aria-controls="password-form-{user.id}"
 								disabled={passwordSaving}
 								onclick={() => togglePasswordForm(user)}
-							>Set Password</button>
+							>{$t("Set Password")}</button>
 							<!-- Admins cannot disable their own account. -->
 							{#if !isSelf}
 								{#if user.is_active}
-									<button class="btn-small danger" onclick={() => setActive(user, false)}>Disable</button>
+									<button class="btn-small danger" onclick={() => setActive(user, false)}>{$t("Disable")}</button>
 								{:else}
-									<button class="btn-small" onclick={() => setActive(user, true)}>Enable</button>
+									<button class="btn-small" onclick={() => setActive(user, true)}>{$t("Enable")}</button>
 								{/if}
 							{/if}
 						</div>
@@ -326,65 +327,65 @@
 								onsubmit={(e) => submitPassword(e, user, isSelf)}
 							>
 								<p class="password-title">
-									{isSelf ? 'Change your password' : `Set a new password for ${user.email}`}
+									{isSelf ? $t("Change your password") : $t('Set a new password for {email}', {email:user.email})}
 								</p>
 								{#if isSelf}
 									<div class="field">
-										<label for="pw-current-{user.id}">Current password</label>
+										<label for="pw-current-{user.id}">{$t("Current password")}</label>
 										<input
 											id="pw-current-{user.id}"
 											name="current_password"
 											type="password"
 											autocomplete="current-password"
-											aria-label="Current password for {user.email}"
+											aria-label={$t('Current password for {email}', {email:user.email})}
 											bind:value={currentPassword}
 										/>
 									</div>
 								{/if}
 								<div class="field">
-									<label for="pw-new-{user.id}">New password</label>
+									<label for="pw-new-{user.id}">{$t("New password")}</label>
 									<input
 										id="pw-new-{user.id}"
 										name="new_password"
 										type="password"
 										autocomplete="new-password"
-										aria-label="New password for {user.email}"
+										aria-label={$t('New password for {email}', {email:user.email})}
 										aria-describedby="pw-hint-{user.id}"
 										bind:value={newPassword}
 									/>
 								</div>
 								<div class="field">
-									<label for="pw-confirm-{user.id}">Confirm new password</label>
+									<label for="pw-confirm-{user.id}">{$t("Confirm new password")}</label>
 									<input
 										id="pw-confirm-{user.id}"
 										name="confirm_password"
 										type="password"
 										autocomplete="new-password"
-										aria-label="Confirm new password for {user.email}"
+										aria-label={$t('Confirm new password for {email}', {email:user.email})}
 										bind:value={confirmPassword}
 									/>
 								</div>
 								<div class="form-actions">
 									<button class="btn-primary" type="submit" disabled={passwordSaving}>
-										{passwordSaving ? 'Saving…' : 'Save Password'}
+										{passwordSaving ? $t("Saving…") : $t("Save Password")}
 									</button>
 									<button
 										class="btn-small"
 										type="button"
 										disabled={passwordSaving}
 										onclick={() => cancelPasswordForm(user.id)}
-									>Cancel</button>
+									>{$t("Cancel")}</button>
 								</div>
 								<p class="hint form-hint" id="pw-hint-{user.id}">
-									At least {PASSWORD_MIN_LENGTH} characters and no more than {PASSWORD_MAX_BYTES} bytes.
+									{$t('At least {min} characters and no more than {max} bytes.', {min:PASSWORD_MIN_LENGTH,max:PASSWORD_MAX_BYTES})}
 								</p>
-								{#if passwordError}<div class="error-msg form-error" role="alert">{passwordError}</div>{/if}
+								{#if passwordError}<div class="error-msg form-error" role="alert">{$t(passwordError)}</div>{/if}
 							</form>
 						</td>
 					</tr>
 				{:else if passwordMessage && passwordMessageUserId === user.id}
 					<tr class="password-row">
-						<td colspan="6"><div class="message password-message">{passwordMessage}</div></td>
+						<td colspan="6"><div class="message password-message">{$t(passwordMessage)}</div></td>
 					</tr>
 				{/if}
 			{/each}

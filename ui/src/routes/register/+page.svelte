@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import { api, ApiError } from '$api/client';
 	import { authStore } from '$stores/authStore.svelte';
 	import { page } from '$app/state';
@@ -64,28 +65,28 @@
 
 <main>
 	<div class="register-container">
-		<h1>Create Your Account</h1>
+		<h1>{$t("Create Your Account")}</h1>
 
 		{#if !token}
-			<div class="error-msg">No invite token found. Please use the link from your invitation email.</div>
+			<div class="error-msg">{$t("No invite token found. Please use the link from your invitation email.")}</div>
 		{:else}
-			{#if error}<div class="error-msg">{error}</div>{/if}
+			{#if error}<div class="error-msg">{$t(error)}</div>{/if}
 			<form onsubmit={handleSubmit}>
 				<div class="field">
-					<label for="name">Full Name</label>
+					<label for="name">{$t("Full Name")}</label>
 					<input id="name" type="text" bind:value={name} required autocomplete="name" />
 				</div>
 				<div class="field">
-					<label for="password">Password</label>
+					<label for="password">{$t("Password")}</label>
 					<input id="password" type="password" bind:value={password} required
-						autocomplete="new-password" placeholder="At least 8 characters" />
+						autocomplete="new-password" placeholder={$t("At least 8 characters")} />
 				</div>
 				<div class="field">
-					<label for="confirm">Confirm Password</label>
+					<label for="confirm">{$t("Confirm Password")}</label>
 					<input id="confirm" type="password" bind:value={confirm} required autocomplete="new-password" />
 				</div>
 				<button type="submit" class="btn-primary" disabled={loading}>
-					{loading ? 'Creating account…' : 'Create Account'}
+					{loading ? $t("Creating account…") : $t("Create Account")}
 				</button>
 			</form>
 		{/if}
@@ -93,7 +94,7 @@
 </main>
 
 <style>
-	main { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+	main { display: flex; justify-content: center; align-items: center; min-height: 0; }
 	.register-container {
 		width: 100%;
 		max-width: 400px;

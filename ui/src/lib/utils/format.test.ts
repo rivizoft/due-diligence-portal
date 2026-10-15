@@ -51,3 +51,11 @@ describe('truncate', () => {
 		expect(truncate('hello', 5)).toBe('hello');
 	});
 });
+
+describe('Russian formatting', () => {
+ it('uses Russian dates and decimal separators', () => {
+  expect(formatDate('2026-04-03T10:30:00Z', 'ru')).toContain('апр.');
+  expect(formatDateTime('2026-04-03T10:30:00Z', 'ru')).toContain('апр.');
+  expect(formatFileSize(1536, 'ru')).toBe('1,5 КБ');
+ });
+});

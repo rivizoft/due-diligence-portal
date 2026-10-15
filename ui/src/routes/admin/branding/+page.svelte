@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import type { BrandingConfig } from '$types/api';
 	import { api } from '$api/client';
 	import { applyBrandingCSS } from '$theme/branding-engine';
@@ -52,9 +53,9 @@
 			const form = new FormData();
 			form.append('file', file);
 			await api.upload(`/branding/assets/${key}`, form);
-			message = `${key} uploaded.`;
+			message = key === 'logo' ? 'Logo uploaded.' : 'Favicon uploaded.';
 		} catch {
-			message = `Failed to upload ${key} (PNG, JPEG, GIF, WEBP, BMP, or ICO only).`;
+			message = key === 'logo' ? 'Failed to upload logo (PNG, JPEG, GIF, WEBP, BMP, or ICO only).' : 'Failed to upload favicon (PNG, JPEG, GIF, WEBP, BMP, or ICO only).';
 		} finally {
 			target.value = '';
 		}
@@ -63,51 +64,51 @@
 	$effect(() => { loadConfig(); });
 </script>
 
-<h1>Branding</h1>
+<h1>{$t("Branding")}</h1>
 
 {#if loading}
-	<p class="loading">Loading branding config...</p>
+	<p class="loading">{$t("Loading branding config...")}</p>
 {:else if !config}
-	<p>Failed to load branding configuration.</p>
+	<p>{$t("Failed to load branding configuration.")}</p>
 {:else}
 	{#if message}
-		<div class="message">{message}</div>
+		<div class="message">{$t(message)}</div>
 	{/if}
 
 	<section>
-		<h2>General</h2>
+		<h2>{$t("General")}</h2>
 		<div class="field">
-			<label for="company">Company Name</label>
+			<label for="company">{$t("Company Name")}</label>
 			<input id="company" type="text" bind:value={config.company_name} />
 		</div>
 		<div class="field">
-			<label for="title">Document Title</label>
-			<input id="title" type="text" bind:value={config.document_title} placeholder="Browser tab title" />
+			<label for="title">{$t("Document Title")}</label>
+			<input id="title" type="text" bind:value={config.document_title} placeholder={$t("Browser tab title")} />
 		</div>
 		<div class="field">
-			<label for="font">Font Family</label>
+			<label for="font">{$t("Font Family")}</label>
 			<input id="font" type="text" bind:value={config.font_family} placeholder="IBM Plex Sans" />
 		</div>
 	</section>
 
 	<section>
-		<h2>Colors</h2>
+		<h2>{$t("Colors")}</h2>
 		<div class="color-grid">
 			{#each [
-				['Primary', 'primary_color'],
-				['Secondary', 'secondary_color'],
-				['Accent', 'accent_color'],
-				['Background', 'background_color'],
-				['Surface', 'surface_color'],
-				['Text', 'text_color'],
-				['Error', 'error_color'],
-				['Success', 'success_color']
+				[$t("Primary"), 'primary_color'],
+				[$t("Secondary"), 'secondary_color'],
+				[$t("Accent"), 'accent_color'],
+				[$t("Background"), 'background_color'],
+				[$t("Surface"), 'surface_color'],
+				[$t("Text"), 'text_color'],
+				[$t("Error"), 'error_color'],
+				[$t("Success"), 'success_color']
 			] as [label, key]}
 				<div class="color-field">
 					<span class="group-label">{label}</span>
 					<div class="color-input">
-						<input type="color" aria-label="{label} color picker" bind:value={config[key as keyof BrandingConfig]} />
-						<input type="text" aria-label="{label} color value" bind:value={config[key as keyof BrandingConfig]} />
+						<input type="color" aria-label={$t('{label} color picker', {label})} bind:value={config[key as keyof BrandingConfig]} />
+						<input type="text" aria-label={$t('{label} color value', {label})} bind:value={config[key as keyof BrandingConfig]} />
 					</div>
 				</div>
 			{/each}
@@ -115,27 +116,27 @@
 	</section>
 
 	<section>
-		<h2>Assets</h2>
+		<h2>{$t("Assets")}</h2>
 		<div class="field">
-			<label for="logo-upload">Logo (PNG, JPEG, GIF, WEBP, BMP, ICO)</label>
+			<label for="logo-upload">{$t("Logo (PNG, JPEG, GIF, WEBP, BMP, ICO)")}</label>
 			<input id="logo-upload" type="file" accept="image/*" onchange={(e) => uploadAsset('logo', e)} />
 		</div>
 		<div class="field">
-			<label for="favicon-upload">Favicon</label>
+			<label for="favicon-upload">{$t("Favicon")}</label>
 			<input id="favicon-upload" type="file" accept="image/*" onchange={(e) => uploadAsset('favicon', e)} />
 		</div>
 	</section>
 
 	<section>
-		<h2>Custom CSS</h2>
-		<textarea bind:value={config.custom_css} rows="6" placeholder="/* Custom CSS overrides */"></textarea>
+		<h2>{$t("Custom CSS")}</h2>
+		<textarea bind:value={config.custom_css} rows="6" placeholder={$t("/* Custom CSS overrides */")}></textarea>
 	</section>
 
 	<div class="actions">
 		<button class="btn-primary" onclick={saveConfig} disabled={saving}>
-			{saving ? 'Saving...' : 'Save Changes'}
+			{saving ? $t("Saving...") : $t("Save Changes")}
 		</button>
-		<button class="btn-secondary" onclick={resetConfig}>Reset to Defaults</button>
+		<button class="btn-secondary" onclick={resetConfig}>{$t("Reset to Defaults")}</button>
 	</div>
 {/if}
 

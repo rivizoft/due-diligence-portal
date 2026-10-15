@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t, locale, intlLocale } from '$lib/i18n';
 	import type { QAThread } from '$types/api';
 	import { api } from '$api/client';
 
@@ -38,7 +39,7 @@
 	}
 
 	function formatDate(iso: string): string {
-		return new Date(iso).toLocaleDateString('en-US', {
+		return new Date(iso).toLocaleDateString(intlLocale($locale), {
 			month: 'short', day: 'numeric', year: 'numeric'
 		});
 	}
@@ -57,54 +58,54 @@
 
 <div class="page">
 	<header class="page-header">
-		<h1>Questions & Answers</h1>
+		<h1>{$t("Questions & Answers")}</h1>
 		<button class="btn-primary" onclick={() => showNewForm = !showNewForm}>
-			{showNewForm ? 'Cancel' : 'Ask Question'}
+			{showNewForm ? $t("Cancel") : $t("Ask Question")}
 		</button>
 	</header>
 
-	{#if formError}<div class="error-msg">{formError}</div>{/if}
+	{#if formError}<div class="error-msg">{$t(formError)}</div>{/if}
 
 	{#if showNewForm}
 		<div class="new-form">
 			<input
 				type="text"
-				placeholder="What would you like to know?"
+				placeholder={$t("What would you like to know?")}
 				bind:value={newSubject}
 				onkeydown={(e) => e.key === 'Enter' && createThread()}
 			/>
-			<button onclick={createThread}>Submit</button>
+			<button onclick={createThread}>{$t("Submit")}</button>
 		</div>
 	{/if}
 
 	<div class="filters">
 		<select bind:value={filterStatus} onchange={loadThreads}>
-			<option value="">All Status</option>
-			<option value="open">Open</option>
-			<option value="answered">Answered</option>
-			<option value="closed">Closed</option>
+			<option value="">{$t("All Status")}</option>
+			<option value="open">{$t("Open")}</option>
+			<option value="answered">{$t("Answered")}</option>
+			<option value="closed">{$t("Closed")}</option>
 		</select>
 	</div>
 
 	{#if loading}
-		<p class="loading">Loading threads...</p>
+		<p class="loading">{$t("Loading threads...")}</p>
 	{:else if loadError}
-		<p class="empty">{loadError} <button class="link" onclick={loadThreads}>Retry</button></p>
+		<p class="empty">{$t(loadError)} <button class="link" onclick={loadThreads}>{$t("Retry")}</button></p>
 	{:else if threads.length === 0}
-		<p class="empty">No questions yet.</p>
+		<p class="empty">{$t("No questions yet.")}</p>
 	{:else}
 		<div class="thread-list">
 			{#each threads as thread}
 				<a href="/qa/{thread.id}" class="thread-card">
 					<div class="thread-header">
-						<span class="status" style="color: {statusColor(thread.status)}">{thread.status}</span>
+						<span class="status" style="color: {statusColor(thread.status)}">{$t(thread.status)}</span>
 						<span class="date">{formatDate(thread.created_at)}</span>
 					</div>
 					<h3>{thread.subject}</h3>
 					<div class="thread-meta">
-						<span>Asked by {thread.asked_by_name ?? 'Unknown'}</span>
+						<span>{$t('Asked by {name}', {name:thread.asked_by_name ?? $t('Unknown')})}</span>
 						{#if thread.message_count}
-							<span>{thread.message_count} messages</span>
+							<span>{$t('{count} messages', {count:thread.message_count})}</span>
 						{/if}
 					</div>
 				</a>

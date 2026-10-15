@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import type { NDATemplate } from '$types/api';
 	import { api, ApiError } from '$api/client';
 	import { goto } from '$app/navigation';
@@ -61,34 +62,34 @@
 </script>
 
 <div class="page">
-	<h1>Non-Disclosure Agreement</h1>
+	<h1>{$t("Non-Disclosure Agreement")}</h1>
 
 	{#if loading}
-		<p class="loading">Loading…</p>
+		<p class="loading">{$t("Loading…")}</p>
 	{:else if alreadySigned}
-		<p class="info">You have already accepted the NDA.</p>
-		<a href="/documents" class="btn-primary">Continue to the data room</a>
+		<p class="info">{$t("You have already accepted the NDA.")}</p>
+		<a href="/documents" class="btn-primary">{$t("Continue to the data room")}</a>
 	{:else if template}
-		{#if error}<div class="error-msg">{error}</div>{/if}
+		{#if error}<div class="error-msg">{$t(error)}</div>{/if}
 		<h2>{template.name}</h2>
 		<div class="nda-content">{template.content}</div>
 
 		<form onsubmit={sign}>
 			<div class="field">
-				<label for="company">Your Company (optional)</label>
+				<label for="company">{$t("Your Company (optional)")}</label>
 				<input id="company" type="text" bind:value={signerCompany} />
 			</div>
 			<label class="agree">
 				<input type="checkbox" bind:checked={agreed} />
-				I have read and agree to the terms of this Non-Disclosure Agreement.
+				{$t("I have read and agree to the terms of this Non-Disclosure Agreement.")}
 			</label>
 			<button type="submit" class="btn-primary" disabled={!agreed || submitting}>
-				{submitting ? 'Submitting…' : 'Accept & Continue'}
+				{submitting ? $t("Submitting…") : $t("Accept & Continue")}
 			</button>
 		</form>
 	{:else}
-		<p class="info">{error || 'No NDA is currently required.'}</p>
-		<a href="/documents" class="btn-primary">Continue</a>
+		<p class="info">{$t(error || "No NDA is currently required.")}</p>
+		<a href="/documents" class="btn-primary">{$t("Continue")}</a>
 	{/if}
 </div>
 

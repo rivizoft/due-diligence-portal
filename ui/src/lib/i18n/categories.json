@@ -1,0 +1,42 @@
+{
+  "cat-corporate": {
+    "name": "Corporate",
+    "description": "Certificate of incorporation, bylaws, org chart, board minutes"
+  },
+  "cat-financials": {
+    "name": "Financials",
+    "description": "Financial statements, projections, cap table, tax returns"
+  },
+  "cat-legal": {
+    "name": "Legal",
+    "description": "Contracts, IP assignments, employment agreements, litigation"
+  },
+  "cat-ip": {
+    "name": "Intellectual Property",
+    "description": "Patents, trademarks, trade secrets, source code documentation"
+  },
+  "cat-team": {
+    "name": "Team",
+    "description": "Key personnel resumes, org structure, hiring plan, compensation"
+  },
+  "cat-product": {
+    "name": "Product",
+    "description": "Product roadmap, architecture, technical documentation, demos"
+  },
+  "cat-fundraising": {
+    "name": "Fundraising",
+    "description": "Pitch deck, term sheets, investor updates, prior round documents"
+  },
+  "cat-compliance": {
+    "name": "Compliance",
+    "description": "SOC 2, GDPR, regulatory filings, security assessments"
+  },
+  "cat-market": {
+    "name": "Market",
+    "description": "Market research, competitive analysis, customer validation, TAM/SAM/SOM"
+  },
+  "cat-other": {
+    "name": "Other",
+    "description": "Miscellaneous documents"
+  }
+}

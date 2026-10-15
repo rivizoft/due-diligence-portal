@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t, locale, intlLocale, number } from '$lib/i18n';
 	import type { NDATemplate, NDASignature, NDAExemption, User } from '$types/api';
 	import { api } from '$api/client';
 
@@ -55,7 +56,7 @@
 	}
 
 	function formatDate(iso: string): string {
-		return new Date(iso).toLocaleDateString('en-US', {
+		return new Date(iso).toLocaleDateString(intlLocale($locale), {
 			month: 'short', day: 'numeric', year: 'numeric'
 		});
 	}
@@ -135,54 +136,54 @@
 	$effect(() => { loadTemplates(); });
 </script>
 
-<h1>NDA Templates</h1>
+<h1>{$t("NDA Templates")}</h1>
 
 <div class="actions">
 	<button class="btn-primary" onclick={() => (showCreate = !showCreate)}>
-		{showCreate ? 'Cancel' : 'Create Template'}
+		{showCreate ? $t("Cancel") : $t("Create Template")}
 	</button>
 	<button class="btn-secondary" onclick={toggleSignatures}>
-		{showSignatures ? 'Hide Signatures' : 'View Signatures'}
+		{showSignatures ? $t("Hide Signatures") : $t("View Signatures")}
 	</button>
 	<button class="btn-secondary" onclick={toggleExemptions}>
-		{showExemptions ? 'Hide Exemptions' : 'Manage Exemptions'}
+		{showExemptions ? $t("Hide Exemptions") : $t("Manage Exemptions")}
 	</button>
 </div>
 
 {#if message}
-	<div class="message">{message}</div>
+	<div class="message">{$t(message)}</div>
 {/if}
 
 {#if showCreate}
 	<div class="create-form">
-		<input type="text" placeholder="Template name" bind:value={newName} />
-		<textarea rows="8" placeholder="NDA content (supports Markdown)" bind:value={newContent}></textarea>
-		<button class="btn-primary" onclick={createTemplate}>Create Template</button>
+		<input type="text" placeholder={$t("Template name")} bind:value={newName} />
+		<textarea rows="8" placeholder={$t("NDA content (supports Markdown)")} bind:value={newContent}></textarea>
+		<button class="btn-primary" onclick={createTemplate}>{$t("Create Template")}</button>
 	</div>
 {/if}
 
 {#if loading}
-	<p class="loading">Loading templates...</p>
+	<p class="loading">{$t("Loading templates...")}</p>
 {:else if templates.length === 0}
-	<p class="empty">No NDA templates. Create one to require investor signatures.</p>
+	<p class="empty">{$t("No NDA templates. Create one to require investor signatures.")}</p>
 {:else}
 	<table>
 		<thead>
 			<tr>
-				<th>Name</th>
-				<th>Version</th>
-				<th>Status</th>
-				<th>Created</th>
+				<th>{$t("Name")}</th>
+				<th>{$t("Version")}</th>
+				<th>{$t("Status")}</th>
+				<th>{$t("Created")}</th>
 			</tr>
 		</thead>
 		<tbody>
 			{#each templates as tmpl}
 				<tr>
 					<td>{tmpl.name}</td>
-					<td>v{tmpl.version}</td>
+					<td>{$t("v")}{$number(tmpl.version)}</td>
 					<td>
 						<span class="status" class:active={tmpl.is_active} class:inactive={!tmpl.is_active}>
-							{tmpl.is_active ? 'Active' : 'Inactive'}
+							{tmpl.is_active ? $t("Active") : $t("Inactive")}
 						</span>
 					</td>
 					<td>{formatDate(tmpl.created_at)}</td>
@@ -193,18 +194,18 @@
 {/if}
 
 {#if showSignatures}
-	<h2>Signatures</h2>
+	<h2>{$t("Signatures")}</h2>
 	{#if signatures.length === 0}
-		<p class="empty">No signatures yet.</p>
+		<p class="empty">{$t("No signatures yet.")}</p>
 	{:else}
 		<table>
 			<thead>
 				<tr>
-					<th>Signer</th>
-					<th>Email</th>
-					<th>Company</th>
-					<th>IP Address</th>
-					<th>Signed</th>
+					<th>{$t("Signer")}</th>
+					<th>{$t("Email")}</th>
+					<th>{$t("Company")}</th>
+					<th>{$t("IP Address")}</th>
+					<th>{$t("Signed")}</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -223,55 +224,54 @@
 {/if}
 
 {#if showExemptions}
-	<h2>Exemptions</h2>
+	<h2>{$t("Exemptions")}</h2>
 	<p class="hint">
-		Exempt users bypass the click-through NDA requirement. Optionally attach an
-		externally executed NDA (e.g. a countersigned PDF) as evidence.
+		{$t("Exempt users bypass the click-through NDA requirement. Optionally attach an externally executed NDA (e.g. a countersigned PDF) as evidence.")}
 	</p>
 
 	<div class="actions">
 		<button class="btn-primary" onclick={() => (showGrantForm = !showGrantForm)}>
-			{showGrantForm ? 'Cancel' : 'Grant Exemption'}
+			{showGrantForm ? $t("Cancel") : $t("Grant Exemption")}
 		</button>
 	</div>
 
 	{#if showGrantForm}
 		<div class="create-form">
 			<label>
-				User
+				{$t("User")}
 				<select bind:value={exemptUserId}>
-					<option value="" disabled>Select a user…</option>
+					<option value="" disabled>{$t("Select a user…")}</option>
 					{#each users as user}
-						<option value={user.id}>{user.name} ({user.email}) — {user.role}</option>
+						<option value={user.id}>{user.name} ({user.email}) — {$t(user.role)}</option>
 					{/each}
 				</select>
 			</label>
 			<label>
-				Reason (optional)
-				<input type="text" placeholder="e.g. NDA executed externally on 2026-07-01" bind:value={exemptReason} />
+				{$t("Reason (optional)")}
+				<input type="text" placeholder={$t("e.g. NDA executed externally on 2026-07-01")} bind:value={exemptReason} />
 			</label>
 			<label>
-				Executed NDA document (optional)
+				{$t("Executed NDA document (optional)")}
 				<input type="file" bind:files={exemptFile} />
 			</label>
 			<button class="btn-primary" onclick={grantExemption} disabled={!exemptUserId || granting}>
-				{granting ? 'Granting…' : 'Grant Exemption'}
+				{granting ? $t("Granting\u2026") : $t("Grant Exemption")}
 			</button>
 		</div>
 	{/if}
 
 	{#if exemptions.length === 0}
-		<p class="empty">No exemptions granted.</p>
+		<p class="empty">{$t("No exemptions granted.")}</p>
 	{:else}
 		<table>
 			<thead>
 				<tr>
-					<th>User</th>
-					<th>Email</th>
-					<th>Reason</th>
-					<th>Document</th>
-					<th>Granted By</th>
-					<th>Granted</th>
+					<th>{$t("User")}</th>
+					<th>{$t("Email")}</th>
+					<th>{$t("Reason")}</th>
+					<th>{$t("Document")}</th>
+					<th>{$t("Granted By")}</th>
+					<th>{$t("Granted")}</th>
 					<th></th>
 				</tr>
 			</thead>
@@ -284,16 +284,16 @@
 						<td>
 							{#if ex.has_document}
 								<button class="btn-link" onclick={() => downloadExemptionDocument(ex)}>
-									{ex.file_name ?? 'Download'}
+									{ex.file_name ?? $t("Download")}
 								</button>
 							{:else}
-								<span class="muted">None</span>
+								<span class="muted">{$t("None")}</span>
 							{/if}
 						</td>
 						<td>{ex.granted_by_name ?? ex.granted_by}</td>
 						<td>{formatDate(ex.created_at)}</td>
 						<td>
-							<button class="btn-danger" onclick={() => revokeExemption(ex)}>Revoke</button>
+							<button class="btn-danger" onclick={() => revokeExemption(ex)}>{$t("Revoke")}</button>
 						</td>
 					</tr>
 				{/each}

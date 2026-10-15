@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { type LocalizedText, t } from '$lib/i18n';
  import { onMount } from 'svelte';
  import { api, apiErrorMessage } from '$api/client';
  import type { PdfPageInfo } from '$types/api';
  let { documentId, version, pages }: { documentId: string; version: number; pages: PdfPageInfo[] } = $props();
- type PageState = { url: string; loading: boolean; error: string };
+ type PageState = { url: string; loading: boolean; error: LocalizedText };
  let states = $state<Record<number, PageState>>({});
  let current = $state(1);
  let container: HTMLDivElement;
@@ -55,20 +56,20 @@
  });
 </script>
 <div class="image-preview" bind:this={container}>
- <nav aria-label="PDF page navigation">
-  <button onclick={() => jump(current - 1)} disabled={current === 1} aria-label="Previous page">Previous</button>
-  <span aria-live="polite">Page {current} of {pages.length}</span>
-  <button onclick={() => jump(current + 1)} disabled={current === pages.length} aria-label="Next page">Next</button>
+ <nav aria-label={$t("PDF page navigation")}>
+  <button onclick={() => jump(current - 1)} disabled={current === 1} aria-label={$t("Previous page")}>{$t("Previous")}</button>
+  <span aria-live="polite">{$t('Page {page} of {total}', {page:current,total:pages.length})}</span>
+  <button onclick={() => jump(current + 1)} disabled={current === pages.length} aria-label={$t("Next page")}>{$t("Next")}</button>
  </nav>
  {#each pages as page, index}
   {@const number = index + 1}
-  <section data-page={number} aria-label="Page {number}" style:aspect-ratio={`${page.width} / ${page.height}`}>
+  <section data-page={number} aria-label={$t('Page {page}', {page:number})} style:aspect-ratio={`${page.width} / ${page.height}`}>
    {#if states[number]?.url}
-    <img src={states[number].url} alt="Page {number}" />
+    <img src={states[number].url} alt={$t('Page {page}', {page:number})} />
    {:else if states[number]?.error}
-    <div class="page-status" role="alert"><p>{states[number].error}</p><button onclick={() => retry(number)}>Retry page {number}</button></div>
+    <div class="page-status" role="alert"><p>{$t(states[number].error)}</p><button onclick={() => retry(number)}>{$t('Retry page {page}', {page:number})}</button></div>
    {:else}
-    <p class="page-status" role="status"><span class="spinner" aria-hidden="true"></span>{states[number]?.loading ? `Preparing page ${number}…` : `Page ${number}`}</p>
+    <p class="page-status" role="status"><span class="spinner" aria-hidden="true"></span>{states[number]?.loading ? $t('Preparing page {page}…', {page:number}) : $t('Page {page}', {page:number})}</p>
    {/if}
   </section>
  {/each}

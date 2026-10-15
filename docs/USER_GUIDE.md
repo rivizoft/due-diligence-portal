@@ -3,6 +3,19 @@
 This guide walks through every feature of the Due Diligence Portal with annotated
 screenshots.
 
+## Language
+
+The portal supports English and Russian. On your first visit it selects the first
+supported language in your browser preferences; if none match, it uses English.
+Use **🇷🇺 Русский / 🇬🇧 English** at the bottom of any page, including the sign-in
+page, to switch immediately. Your manual choice is remembered in this browser.
+Dates, numbers and file sizes follow the selected language.
+
+Standard category labels and descriptions are translated while their original
+values are unchanged. Custom names, uploaded documents, NDA legal text and
+messages keep their original content. System emails include Russian and English;
+a recipient's browser preference is not available to the mail service.
+
 ## Signing In
 
 Navigate to your portal URL. You'll see the login page:

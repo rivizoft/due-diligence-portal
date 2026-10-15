@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t, locale, intlLocale, categoryName } from '$lib/i18n';
 	import type { AccessGrant, Category, Document, User } from '$types/api';
 	import { api } from '$api/client';
 
@@ -117,7 +118,7 @@
 	}
 
 	function formatDate(iso: string): string {
-		return new Date(iso).toLocaleDateString('en-US', {
+		return new Date(iso).toLocaleDateString(intlLocale($locale), {
 			month: 'short', day: 'numeric', year: 'numeric'
 		});
 	}
@@ -128,58 +129,55 @@
 	});
 </script>
 
-<h1>Access Grants</h1>
+<h1>{$t("Access Grants")}</h1>
 <p class="hint">
-	By default (<code>DD_INVESTOR_ACCESS=all</code>) every investor sees every document, and
-	grants have no effect. Set <code>DD_INVESTOR_ACCESS=granted</code> on the server to
-	restrict investors to documents they hold a grant for — either on the document itself
-	or on its category. Admins and company members always see everything.
+	{$t("By default (")}<code>DD_INVESTOR_ACCESS=all</code>{$t(") every investor sees every document, and grants have no effect. Set")} <code>DD_INVESTOR_ACCESS=granted</code> {$t("on the server to restrict investors to documents they hold a grant for — either on the document itself or on its category. Admins and company members always see everything.")}
 </p>
 
 <div class="user-picker">
-	<label for="grant-user">User</label>
+	<label for="grant-user">{$t("User")}</label>
 	<select id="grant-user" bind:value={selectedUserId} onchange={onUserChange}>
-		<option value="" disabled>Select a user…</option>
+		<option value="" disabled>{$t("Select a user…")}</option>
 		{#each users as user}
-			<option value={user.id}>{user.name} ({user.email}) — {user.role}</option>
+			<option value={user.id}>{user.name} ({user.email}) — {$t(user.role)}</option>
 		{/each}
 	</select>
 </div>
 
 {#if message}
-	<div class="message">{message}</div>
+	<div class="message">{$t(message)}</div>
 {/if}
 
 {#if selectedUserId}
 	{#if selectedUser && selectedUser.role !== 'investor'}
 		<p class="staff-note">
-			{selectedUser.name} is {selectedUser.role === 'admin' ? 'an admin' : 'a company member'}
-			and can already access all documents; grants only affect investors.
+			{selectedUser.name} {$t("is")} {selectedUser.role === 'admin' ? $t("an admin") : $t("a company member")}
+			{$t("and can already access all documents; grants only affect investors.")}
 		</p>
 	{/if}
 
 	<div class="actions">
 		<button class="btn-primary" onclick={() => (showGrantForm = !showGrantForm)}>
-			{showGrantForm ? 'Cancel' : 'Grant Access'}
+			{showGrantForm ? $t("Cancel") : $t("Grant Access")}
 		</button>
 	</div>
 
 	{#if showGrantForm}
 		<div class="grant-form">
 			<label>
-				Resource type
+				{$t("Resource type")}
 				<select bind:value={resourceType} onchange={() => (resourceId = '')}>
-					<option value="category">Category (all documents in it)</option>
-					<option value="document">Single document</option>
+					<option value="category">{$t("Category (all documents in it)")}</option>
+					<option value="document">{$t("Single document")}</option>
 				</select>
 			</label>
 			<label>
-				{resourceType === 'category' ? 'Category' : 'Document'}
+				{resourceType === 'category' ? $t("Category") : $t("Document")}
 				<select bind:value={resourceId}>
-					<option value="" disabled>Select…</option>
+					<option value="" disabled>{$t("Select…")}</option>
 					{#if resourceType === 'category'}
 						{#each categories as cat}
-							<option value={cat.id}>{cat.name} ({cat.document_count ?? 0} documents)</option>
+							<option value={cat.id}>{categoryName(cat, $locale)} ({$t('{count} documents', {count:cat.document_count ?? 0})})</option>
 						{/each}
 					{:else}
 						{#each documents as doc}
@@ -189,61 +187,61 @@
 				</select>
 			</label>
 			<label>
-				Access level
+				{$t("Access level")}
 				<select bind:value={accessLevel}>
-					<option value="view">View only</option>
-					<option value="download">View + download</option>
-					<option value="upload">View + download + upload</option>
-					<option value="manage">Full manage</option>
+					<option value="view">{$t("View only")}</option>
+					<option value="download">{$t("View + download")}</option>
+					<option value="upload">{$t("View + download + upload")}</option>
+					<option value="manage">{$t("Full manage")}</option>
 				</select>
 			</label>
 			<label>
-				Expires (optional)
+				{$t("Expires (optional)")}
 				<input type="date" bind:value={expiresOn} />
 			</label>
 			<button class="btn-primary" onclick={grantAccess} disabled={!resourceId || granting}>
-				{granting ? 'Granting…' : 'Grant Access'}
+				{granting ? $t("Granting\u2026") : $t("Grant Access")}
 			</button>
 		</div>
 	{/if}
 
 	{#if loadingGrants}
-		<p class="loading">Loading grants...</p>
+		<p class="loading">{$t("Loading grants...")}</p>
 	{:else if grants.length === 0}
 		<p class="empty">
-			No grants for this user{selectedUser?.role === 'investor'
-				? ' — they cannot see any documents yet.'
+			{$t("No grants for this user")}{selectedUser?.role === 'investor'
+				? $t(" \u2014 they cannot see any documents yet.")
 				: '.'}
 		</p>
 	{:else}
 		<table>
 			<thead>
 				<tr>
-					<th>Scope</th>
-					<th>Resource</th>
-					<th>Level</th>
-					<th>Expires</th>
-					<th>Granted</th>
+					<th>{$t("Scope")}</th>
+					<th>{$t("Resource")}</th>
+					<th>{$t("Level")}</th>
+					<th>{$t("Expires")}</th>
+					<th>{$t("Granted")}</th>
 					<th></th>
 				</tr>
 			</thead>
 			<tbody>
 				{#each grants as grant}
 					<tr class:expired={isExpired(grant)}>
-						<td class="cap">{grant.resource_type}</td>
-						<td>{grant.resource_name || grant.resource_id}</td>
-						<td class="cap">{grant.access_level}</td>
+						<td class="cap">{$t(grant.resource_type)}</td>
+						<td>{grant.resource_type === 'category' ? categoryName({id:grant.resource_id, name:grant.resource_name || grant.resource_id}, $locale) : grant.resource_name || grant.resource_id}</td>
+						<td class="cap">{$t(grant.access_level === 'download' || grant.access_level === 'upload' ? 'access.' + grant.access_level : grant.access_level)}</td>
 						<td>
 							{#if grant.expires_at}
 								{formatDate(grant.expires_at)}
-								{#if isExpired(grant)}<span class="expired-tag">expired</span>{/if}
+								{#if isExpired(grant)}<span class="expired-tag">{$t("expired")}</span>{/if}
 							{:else}
-								Never
+								{$t("Never")}
 							{/if}
 						</td>
 						<td>{formatDate(grant.created_at)}</td>
 						<td>
-							<button class="btn-danger" onclick={() => revokeGrant(grant)}>Revoke</button>
+							<button class="btn-danger" onclick={() => revokeGrant(grant)}>{$t("Revoke")}</button>
 						</td>
 					</tr>
 				{/each}

@@ -1,19 +1,20 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import { authStore } from '$stores/authStore.svelte';
 </script>
 
 <main>
 	<div class="box">
-		<h1>Access Denied</h1>
-		<p>You don't have permission to view this page.</p>
+		<h1>{$t("Access Denied")}</h1>
+		<p>{$t("You don't have permission to view this page.")}</p>
 		<a href={authStore.isAuthenticated ? '/documents' : '/login'} class="btn-primary">
-			{authStore.isAuthenticated ? 'Back to Documents' : 'Sign In'}
+			{authStore.isAuthenticated ? $t("Back to Documents") : $t("Sign In")}
 		</a>
 	</div>
 </main>
 
 <style>
-	main { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+	main { display: flex; justify-content: center; align-items: center; min-height: 0; }
 	.box {
 		text-align: center;
 		max-width: 420px;

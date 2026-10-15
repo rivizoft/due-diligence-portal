@@ -1,24 +1,25 @@
 <script lang="ts">
+	import { t, hasTranslation } from '$lib/i18n';
 	import { page } from '$app/state';
 	import { authStore } from '$stores/authStore.svelte';
 
 	let status = $derived(page.status);
-	let message = $derived(page.error?.message ?? 'Something went wrong');
+	let message = $derived(status === 404 ? 'Page not found' : page.error?.message && hasTranslation(page.error.message) ? page.error.message : 'Something went wrong');
 </script>
 
 <main>
 	<div class="box">
 		<p class="status">{status}</p>
-		<h1>{status === 404 ? 'Page not found' : 'Something went wrong'}</h1>
-		<p class="detail">{message}</p>
+		<h1>{status === 404 ? $t("Page not found") : $t("Something went wrong")}</h1>
+		<p class="detail">{$t(message)}</p>
 		<a href={authStore.isAuthenticated ? '/documents' : '/login'} class="btn-primary">
-			{authStore.isAuthenticated ? 'Back to Documents' : 'Sign In'}
+			{authStore.isAuthenticated ? $t("Back to Documents") : $t("Sign In")}
 		</a>
 	</div>
 </main>
 
 <style>
-	main { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+	main { display: flex; justify-content: center; align-items: center; min-height: 0; }
 	.box {
 		text-align: center;
 		max-width: 460px;
