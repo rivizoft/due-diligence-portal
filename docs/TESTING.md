@@ -34,6 +34,13 @@ go test -race -short ./...
 ./scripts/testing/full-testing.sh
 ```
 
+Install UI dependencies with `npm ci --ignore-scripts` to avoid running dependency
+installation hooks, including Carbon's IBM build telemetry. CI and Docker use this
+mode; `npm run build` still explicitly runs the project's PDF asset preparation.
+If installation hooks are needed locally, set `IBM_TELEMETRY_DISABLED=true` before
+installing. The Go test suite also executes the CI branch-tag script with hostile
+Git refs and checks JWT secret-file permissions using stubbed Docker commands.
+
 ## Test Scripts
 
 | Script | What It Does |

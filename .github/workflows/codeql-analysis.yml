@@ -40,7 +40,7 @@ jobs:
         run: go build ./...
       - name: Install npm deps
         if: matrix.language == 'javascript'
-        run: cd ui && npm ci
+        run: cd ui && npm ci --ignore-scripts
       - uses: github/codeql-action/analyze@v3
         with:
           category: "/language:${{ matrix.language }}"

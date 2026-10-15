@@ -13,8 +13,6 @@ concurrency:
 
 permissions:
   contents: read
-  packages: write
-  security-events: write
 
 env:
   REGISTRY: ghcr.io
@@ -29,13 +27,20 @@ jobs:
     steps:
       - name: Extract branch name
         id: branch
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_HEAD_REF: ${{ github.head_ref }}
+          PUSH_REF_NAME: ${{ github.ref_name }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BRANCH="${{ github.head_ref }}"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BRANCH="$PR_HEAD_REF"
           else
-            BRANCH="${{ github.ref_name }}"
+            BRANCH="$PUSH_REF_NAME"
           fi
-          TAG=$(echo "$BRANCH" | sed 's|/|-|g')
+          TAG=$(printf '%s' "$BRANCH" | LC_ALL=C sed 's/[^A-Za-z0-9_.-]/-/g' | cut -c1-128)
+          case "$TAG" in
+            ''|[.-]*) TAG="branch-${TAG:0:121}" ;;
+          esac
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
   lint:
@@ -53,7 +58,7 @@ jobs:
           node-version: '22'
           cache: 'npm'
           cache-dependency-path: ui/package-lock.json
-      - run: cd ui && npm ci
+      - run: cd ui && npm ci --ignore-scripts
       - name: Go Lint
         run: |
           go vet ./...
@@ -77,7 +82,7 @@ jobs:
           node-version: '22'
           cache: 'npm'
           cache-dependency-path: ui/package-lock.json
-      - run: cd ui && npm ci
+      - run: cd ui && npm ci --ignore-scripts
       - name: Install PDF test dependencies
         run: |
           sudo apt-get update
@@ -130,6 +135,9 @@ jobs:
   build:
     name: Build and Push
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     needs: [setup, lint, unit-test, race-detection, security-scan]
     if: >-
       always() &&

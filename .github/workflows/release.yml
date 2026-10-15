@@ -46,7 +46,8 @@ jobs:
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "${{ github.ref_name }}" \
-            --title "Due Diligence Portal ${{ github.ref_name }}" \
+          gh release create "$RELEASE_TAG" \
+            --title "Due Diligence Portal $RELEASE_TAG" \
             --generate-notes
