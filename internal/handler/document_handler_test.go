@@ -51,7 +51,7 @@ func setupDocumentTestDB(t *testing.T) (*echo.Echo, *service.AuthService, string
 	authMW := middleware.JWTAuth(authSvc)
 
 	// Register document routes on auth group.
-	g := e.Group("/api/v1", authMW)
+	g := e.Group("/api/v1", authMW, middleware.RequireNDA(repository.NewNDARepository(db)))
 	docHandler := NewDocumentHandler(docRepo, permRepo, audit, repository.NewWatermarkRepository(db), nil)
 	docHandler.RegisterRoutes(g)
 
@@ -363,7 +363,7 @@ func TestDocumentHandler_InvestorOpenAccess(t *testing.T) {
 	docID := uploadDocument(t, e, adminToken, "cat-financials")
 	invToken := loginInvestor(t, authSvc, adminToken)
 
-	// With open access (the default), an ungranted investor sees every document.
+	// Explicit open access lets an ungranted investor see every document.
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/documents", nil)
 	req.Header.Set("Authorization", "Bearer "+invToken)
 	rec := httptest.NewRecorder()

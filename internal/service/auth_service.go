@@ -184,10 +184,8 @@ func (s *AuthService) Register(ctx context.Context, token, name, password string
 // current password hash (constant-time comparison), so setting or changing a
 // password revokes every refresh token issued before the change. Refresh tokens
 // minted before the claim existed carry no fingerprint and are rejected (fail
-// closed), which costs their holders one re-login. Already-issued ACCESS tokens
-// are validated statelessly by middleware.JWTAuth and are not revoked: they stay
-// usable until they expire (at most accessTokenExpiry), the same window that
-// applies after an account is deactivated.
+// closed), which costs their holders one re-login. API access tokens are also
+// checked against the current account by ValidateAccessToken on every request.
 func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (string, error) {
 	claims, err := s.ValidateToken(refreshToken)
 	if err != nil {
@@ -239,10 +237,8 @@ func (s *AuthService) SetPassword(ctx context.Context, userID, password string) 
 // it returns a freshly minted token pair bound to the new password so the
 // caller's session continues.
 //
-// Like SetPassword it leaves the account's active state alone and does not check
-// it: a disabled account can still change its password while its access token
-// lasts, but RefreshToken refuses disabled accounts, so the new refresh token
-// cannot extend that session.
+// Like SetPassword it leaves the account's active state alone. The HTTP caller
+// must first pass ValidateAccessToken, which rejects disabled accounts.
 func (s *AuthService) ChangeOwnPassword(ctx context.Context, userID, currentPassword, newPassword string) (*LoginResult, error) {
 	if err := domain.ValidatePassword(newPassword); err != nil {
 		return nil, err
@@ -303,6 +299,25 @@ func (s *AuthService) ValidateToken(tokenString string) (*JWTClaims, error) {
 		return nil, domain.ErrUnauthorized
 	}
 
+	return claims, nil
+}
+
+// ValidateAccessToken authorizes an API session against the current account.
+// Disabling/deleting an account, changing its role, or setting its password must
+// take effect immediately, including for an otherwise unexpired stolen token.
+// A database failure denies access rather than falling back to stale claims.
+func (s *AuthService) ValidateAccessToken(ctx context.Context, tokenString string) (*JWTClaims, error) {
+	claims, err := s.ValidateToken(tokenString)
+	if err != nil || claims.TokenType != TokenTypeAccess || claims.UserID == "" {
+		return nil, domain.ErrUnauthorized
+	}
+	user, err := s.userRepo.GetByID(ctx, claims.UserID)
+	if err != nil || !user.IsActive || user.Role != claims.Role ||
+		!s.passwordVersionMatches(claims.PasswordVersion, user.PasswordHash) {
+		return nil, domain.ErrUnauthorized
+	}
+	claims.Email = user.Email
+	claims.Name = user.Name
 	return claims, nil
 }
 
