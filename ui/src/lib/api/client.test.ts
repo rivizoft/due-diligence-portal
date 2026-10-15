@@ -58,6 +58,11 @@ describe('authenticated binary', () => {
   const fetcher=vi.fn().mockResolvedValue(new Response('PDF',{headers:{'Content-Type':'application/pdf','Content-Disposition':'inline; filename="report.pdf"'}}));vi.stubGlobal('fetch',fetcher);
   const result=await api.binary('/documents/d/preview');expect(result.filename).toBe('report.pdf');expect(result.blob.type).toBe('application/pdf');expect(fetcher.mock.calls[0][0]).toBe('/api/v1/documents/d/preview');expect(fetcher.mock.calls[0][1].headers.Authorization).toBe('Bearer old-token');
  });
+ it('prefers the UTF-8 download name over an ASCII fallback', async () => {
+  const name='Пояснение по категориям.pdf';
+  vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('PDF',{headers:{'Content-Type':'application/pdf','Content-Disposition':`attachment; filename="fallback.pdf"; filename*=utf-8''${encodeURIComponent(name)}`}})));
+  expect((await api.binary('/documents/d/download')).filename).toBe(name);
+ });
  it('propagates preparation errors from the envelope', async () => {
   vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response(JSON.stringify({error:'PDF preparation timed out.'}),{status:504})));
   try { await api.binary('/documents/d/preview');throw new Error('must reject'); } catch(err){expect(apiErrorMessage(err,'fallback')).toBe('PDF preparation timed out.');}

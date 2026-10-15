@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -256,7 +257,7 @@ func TestNDAHandler_CheckStatus(t *testing.T) {
 	assert.Equal(t, true, data["signed"])
 }
 
-func grantExemptionRequest(t *testing.T, userID, reason string, fileContent []byte) *http.Request {
+func grantExemptionRequest(t *testing.T, userID, reason string, fileContent []byte, filenames ...string) *http.Request {
 	t.Helper()
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
@@ -267,7 +268,11 @@ func grantExemptionRequest(t *testing.T, userID, reason string, fileContent []by
 		require.NoError(t, mw.WriteField("reason", reason))
 	}
 	if fileContent != nil {
-		fw, err := mw.CreateFormFile("file", "signed-nda.pdf")
+		filename := "signed-nda.pdf"
+		if len(filenames) > 0 {
+			filename = filenames[0]
+		}
+		fw, err := mw.CreateFormFile("file", filename)
 		require.NoError(t, err)
 		_, err = fw.Write(fileContent)
 		require.NoError(t, err)
@@ -277,6 +282,22 @@ func grantExemptionRequest(t *testing.T, userID, reason string, fileContent []by
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/nda/exemptions", &buf)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 	return req
+}
+
+func TestNDAExemptionDownloadPreservesUnicodeFilename(t *testing.T) {
+	e, _, token, adminID := setupNDAHandlerTest(t)
+	name := "Подписанное соглашение.pdf"
+	req := grantExemptionRequest(t, adminID, "Executed externally", []byte("%PDF-1.4 test"), name)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+	rec = documentRequest(e, token, "GET", "/nda/exemptions/"+adminID+"/document")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	_, params, err := mime.ParseMediaType(rec.Header().Get("Content-Disposition"))
+	require.NoError(t, err)
+	require.Equal(t, name, params["filename"])
+	require.Contains(t, strings.ToLower(rec.Header().Get("Content-Disposition")), "filename*=utf-8''")
 }
 
 func TestNDAHandler_GrantExemption_WithDocument(t *testing.T) {

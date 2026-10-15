@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -390,7 +391,7 @@ func (h *NDAHandler) DownloadExemptionDocument(c echo.Context) error {
 
 	c.Response().Header().Set("Content-Type", ex.MimeType)
 	c.Response().Header().Set("Content-Disposition",
-		fmt.Sprintf("attachment; filename=%q", sanitize.FileName(ex.FileName)))
+		mime.FormatMediaType("attachment", map[string]string{"filename": sanitize.FileName(ex.FileName)}))
 	return c.Blob(http.StatusOK, ex.MimeType, ex.FileData)
 }
 

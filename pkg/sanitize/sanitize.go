@@ -131,7 +131,7 @@ func IsSVGAttrBlocked(name, value string) bool {
 }
 
 var (
-	filenameUnsafe = regexp.MustCompile(`[^A-Za-z0-9._ -]`)
+	filenameUnsafe = regexp.MustCompile(`[^\p{L}\p{M}\p{N}._ -]`)
 	dotRuns        = regexp.MustCompile(`\.{2,}`)
 	hexColorRe     = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$`)
 	rgbColorRe     = regexp.MustCompile(`^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(?:,\s*(?:0|1|0?\.\d+)\s*)?\)$`)
@@ -139,8 +139,8 @@ var (
 
 // FileName sanitizes a filename for safe use, removing any path component and
 // neutralizing traversal sequences. The result is restricted to the
-// [A-Za-z0-9._-] allowlist with collapsed dot-runs, so it cannot reconstruct ".."
-// or contain separators regardless of input.
+// Unicode letter/mark/number and ASCII punctuation allowlist with collapsed
+// dot-runs, so it cannot reconstruct ".." or contain separators or controls.
 func FileName(name string) string {
 	name = strings.ReplaceAll(name, "\\", "/") // treat Windows separators as path separators
 	name = filepath.Base(name)                 // drop any directory component
