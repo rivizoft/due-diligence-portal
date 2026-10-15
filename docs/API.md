@@ -134,6 +134,49 @@ Valid asset keys: `logo`, `logo_dark`, `favicon`, `login_background`, `email_hea
 | PUT | `/watermark` | Yes | Admin | Update watermark config |
 | DELETE | `/watermark` | Yes | Admin | Reset to defaults |
 
+## Storage (admin only)
+
+| Method | Path | Behavior |
+|---|---|---|
+| GET | `/storage` | Return safe settings and saved-key/location-lock indicators |
+| PUT | `/storage` | Validate and save settings; verify an active/changed connection |
+| POST | `/storage/test` | Verify the submitted connection using Put/Get/Delete without saving |
+
+PUT and POST accept this complete form (empty credential fields preserve the
+saved pair; on first connection both keys are required):
+
+```json
+{
+  "enabled": true,
+  "bucket": "company-documents",
+  "region": "eu-central-1",
+  "endpoint": "",
+  "path_style": false,
+  "key_prefix": "documents/",
+  "access_key_id": "",
+  "secret_access_key": ""
+}
+```
+
+Settings responses contain `enabled`, `bucket`, `region`, `endpoint`,
+`path_style`, `key_prefix`, `credentials_configured`, `masked_access_key_id`
+and `location_locked`. They never contain secret/access-key plaintext or
+ciphertext. Document payloads do not expose object locations.
+
+All three routes require admin JWT authorization. Errors use the standard
+JSON envelope: 400 (invalid fields or partial key replacement), 403 (other
+roles), 409 (changing a referenced location), 503 (unavailable connection,
+insufficient object permissions or unavailable encryption key), 504 (timeout).
+Missing or corrupt originals produce 502 during document delivery. Failed saves
+retain the previously configured storage; uploads never silently fall back to
+SQLite when enabled S3 is unavailable.
+
+Disabling with the unchanged full configuration needs no reachable S3 and keeps
+previous S3 reads/cleanup enabled. The probe requires no ListBucket/HeadBucket
+permission and uses the configured prefix. Endpoint must be HTTPS without
+userinfo, query or fragment; an empty endpoint uses AWS. See the deployment
+guide for key persistence, backup and cleanup behavior.
+
 ## Users
 
 | Method | Path | Auth | Role | Description |

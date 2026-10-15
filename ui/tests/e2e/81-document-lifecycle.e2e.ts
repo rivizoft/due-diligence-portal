@@ -35,8 +35,9 @@ test('document lifecycle, PDF preview and investor View Only', async ({ page, re
  const categoryResponse = await request.post('/api/v1/categories', { headers, data: { name: `Lifecycle ${suffix}`, slug: `lifecycle-${suffix}` } });
  expect(categoryResponse.ok()).toBeTruthy();
  const category = (await categoryResponse.json()).data;
- await page.goto('/');
- await page.evaluate(token => localStorage.setItem('dd_auth_token', token), admin);
+ // Install before page scripts run so the landing redirect/guard cannot race
+ // token injection while navigating to the protected upload route.
+ await page.addInitScript(token => localStorage.setItem('dd_auth_token', token), admin);
  const errors: string[] = [];
  page.on('pageerror', err => errors.push(err.message));
  page.on('dialog', dialog => dialog.accept());

@@ -65,6 +65,30 @@ export interface DocumentVersion {
 	created_at: string;
 }
 
+/** Safe response from admin-only storage endpoints; keys are write-only. */
+export interface StorageSettings {
+	enabled: boolean;
+	bucket: string;
+	region: string;
+	endpoint: string;
+	path_style: boolean;
+	key_prefix: string;
+	credentials_configured: boolean;
+	masked_access_key_id: string;
+	location_locked: boolean;
+}
+
+export interface StorageSaveRequest {
+	enabled: boolean;
+	bucket: string;
+	region: string;
+	endpoint: string;
+	path_style: boolean;
+	key_prefix: string;
+	access_key_id: string;
+	secret_access_key: string;
+}
+
 export interface Category {
 	id: string;
 	name: string;

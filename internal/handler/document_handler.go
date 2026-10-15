@@ -31,15 +31,20 @@ type DocumentHandler struct {
 	maxUploadSize int64
 	wmRepo        repository.WatermarkRepository
 	pdfSvc        *pdfsvc.Service
+	content       VersionContent
 }
 
 // NewDocumentHandler creates a new DocumentHandler.
-func NewDocumentHandler(docRepo repository.DocumentRepository, permRepo repository.PermissionRepository, audit *middleware.AuditLogger, wmRepo repository.WatermarkRepository, pdfSvc *pdfsvc.Service) *DocumentHandler {
+func NewDocumentHandler(docRepo repository.DocumentRepository, permRepo repository.PermissionRepository, audit *middleware.AuditLogger, wmRepo repository.WatermarkRepository, pdfSvc *pdfsvc.Service, content ...VersionContent) *DocumentHandler {
 	maxSize := envconfig.GetEnvInt64("DD_MAX_UPLOAD_SIZE", defaultMaxUploadSize)
 	if maxSize <= 0 || maxSize > absoluteMaxUploadSize {
 		maxSize = defaultMaxUploadSize
 	}
-	return &DocumentHandler{docRepo: docRepo, permRepo: permRepo, audit: audit, maxUploadSize: maxSize, wmRepo: wmRepo, pdfSvc: pdfSvc}
+	h := &DocumentHandler{docRepo: docRepo, permRepo: permRepo, audit: audit, maxUploadSize: maxSize, wmRepo: wmRepo, pdfSvc: pdfSvc}
+	if len(content) > 0 {
+		h.content = content[0]
+	}
+	return h
 }
 
 // RegisterRoutes registers document routes on a pre-authenticated group.
@@ -242,8 +247,8 @@ func (h *DocumentHandler) Upload(c echo.Context) error {
 
 	// Insert the document and its first version atomically so a failure cannot
 	// leave an orphan document with no downloadable version.
-	if err := h.docRepo.CreateWithVersion(c.Request().Context(), doc, version); err != nil {
-		return response.InternalError(c)
+	if err := h.storeVersion(c.Request().Context(), version, func() error { return h.docRepo.CreateWithVersion(c.Request().Context(), doc, version) }); err != nil {
+		return storageResponseError(c, err)
 	}
 
 	h.audit.LogFromContext(c, domain.AuditDocumentUploaded, "document", docID, safeFilename, "")
@@ -378,8 +383,8 @@ func (h *DocumentHandler) UploadVersion(c echo.Context) error {
 	// Insert the version and advance the document pointer atomically. AddVersion
 	// computes the new version number inside the transaction (race-safe) and
 	// updates doc.CurrentVersion / MimeType / FileSize on success.
-	if err := h.docRepo.AddVersion(c.Request().Context(), doc, version); err != nil {
-		return response.InternalError(c)
+	if err := h.storeVersion(c.Request().Context(), version, func() error { return h.docRepo.AddVersion(c.Request().Context(), doc, version) }); err != nil {
+		return storageResponseError(c, err)
 	}
 
 	h.audit.LogFromContext(c, domain.AuditDocumentNewVersion, "document", docID, doc.Name,
@@ -477,5 +482,8 @@ func (h *DocumentHandler) DeleteVersion(c echo.Context) error {
 		return response.InternalError(c)
 	}
 	h.audit.LogFromContext(c, domain.AuditDocumentVersionDeleted, "document", doc.ID, doc.Name, fmt.Sprintf("version=%d", number))
+	if h.content != nil {
+		h.content.ScheduleCleanup()
+	}
 	return response.OK(c, "Version deleted", nil)
 }
