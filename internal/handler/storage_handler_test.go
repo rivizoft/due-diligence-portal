@@ -23,6 +23,7 @@ import (
 type handlerObjectStore struct {
 	objects     map[string][]byte
 	reads       int
+	prefixReads int
 	deleted     int
 	putError    error
 	deleteError error
@@ -43,6 +44,15 @@ func (s *handlerObjectStore) Get(_ context.Context, b, k string, _ int64) ([]byt
 		return nil, storesvc.ErrContent
 	}
 	return data, nil
+}
+
+func (s *handlerObjectStore) GetPrefix(_ context.Context, b, k string, limit int64) ([]byte, error) {
+	s.prefixReads++
+	data, ok := s.objects[b+"/"+k]
+	if !ok {
+		return nil, storesvc.ErrContent
+	}
+	return data[:min(int64(len(data)), limit)], nil
 }
 func (s *handlerObjectStore) Delete(ctx context.Context, b, k string) error {
 	if s.deleteGate != nil {

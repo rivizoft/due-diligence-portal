@@ -1,12 +1,13 @@
 package handler
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
-	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
@@ -156,6 +157,19 @@ func (h *DocumentHandler) Get(c echo.Context) error {
 	if err != nil {
 		return response.InternalError(c)
 	}
+	// Repair available legacy PDF versions using only prefixes and one shared
+	// short deadline. Metadata remains usable when an original is offline. Binary
+	// routes require successful resolution and full integrity verification.
+	ctx, cancel := context.WithTimeout(c.Request().Context(), 2*time.Second)
+	defer cancel()
+	for _, v := range versions {
+		if ctx.Err() == nil {
+			_ = h.resolveVersionMIME(ctx, v)
+		}
+		if v.VersionNumber == doc.CurrentVersion {
+			doc.MimeType = v.MimeType
+		}
+	}
 
 	canDownload, err := h.canAccessDocument(c, doc, domain.AccessDownload)
 	if err != nil {
@@ -208,7 +222,7 @@ func (h *DocumentHandler) Upload(c echo.Context) error {
 	safeFilename := sanitize.FileName(file.Filename)
 	// Derive the MIME type from the actual bytes rather than trusting the
 	// client-supplied Content-Type, which is later echoed back on download.
-	mimeType := http.DetectContentType(fileData)
+	mimeType := detectDocumentMIME(fileData)
 
 	docID, err := generateHandlerID()
 	if err != nil {
@@ -304,7 +318,7 @@ func (h *DocumentHandler) Update(c echo.Context) error {
 	return response.OK(c, "Document updated", doc)
 }
 
-// Archive handles DELETE /documents/:id (soft delete).
+// Archive handles DELETE /documents/:id, retaining only the document tombstone.
 func (h *DocumentHandler) Archive(c echo.Context) error {
 	id := c.Param("id")
 
@@ -316,6 +330,9 @@ func (h *DocumentHandler) Archive(c echo.Context) error {
 	}
 
 	h.audit.LogFromContext(c, domain.AuditDocumentArchived, "document", id, "", "")
+	if h.content != nil {
+		h.content.ScheduleCleanup()
+	}
 
 	return response.OK(c, "Document archived", nil)
 }
@@ -360,7 +377,7 @@ func (h *DocumentHandler) UploadVersion(c echo.Context) error {
 	checksum := sha256.Sum256(fileData)
 	checksumHex := hex.EncodeToString(checksum[:])
 	// Derive MIME from the actual bytes, not the client-supplied Content-Type.
-	mimeType := http.DetectContentType(fileData)
+	mimeType := detectDocumentMIME(fileData)
 
 	versionID, err := generateHandlerID()
 	if err != nil {

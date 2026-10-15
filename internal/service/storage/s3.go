@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -20,6 +21,7 @@ import (
 type Client interface {
 	Put(context.Context, string, string, []byte, string) error
 	Get(context.Context, string, string, int64) ([]byte, error)
+	GetPrefix(context.Context, string, string, int64) ([]byte, error)
 	Delete(context.Context, string, string) error
 }
 
@@ -84,4 +86,18 @@ func (c *s3Client) Delete(ctx context.Context, bucket, key string) error {
 		}
 	}
 	return err
+}
+
+// GetPrefix bounds both the request and the response, even for providers that
+// ignore Range. Actual delivery still uses Get and validates the full checksum.
+func (c *s3Client) GetPrefix(ctx context.Context, bucket, key string, limit int64) ([]byte, error) {
+	if limit <= 0 || limit > 1024 {
+		return nil, ErrContent
+	}
+	out, err := c.client.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(bucket), Key: aws.String(key), Range: aws.String(fmt.Sprintf("bytes=0-%d", limit-1))})
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = out.Body.Close() }()
+	return io.ReadAll(io.LimitReader(out.Body, limit))
 }

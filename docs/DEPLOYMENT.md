@@ -158,11 +158,17 @@ signed requests and document contents on the configured secure connection. Use
 the final HTTPS endpoint and the correct bucket region rather than a redirecting
 gateway or endpoint alias.
 
-Logical version deletion atomically queues physical object deletion; a worker
-retries failures after restart with backoff. Archiving keeps all originals, and
-the last version cannot be deleted. `DeleteObject` on a versioned bucket can
+Document deletion removes all version content and atomically queues all its S3
+objects for deletion. The document metadata remains as an inaccessible tombstone
+for audit and Q&A references. Version deletion queues only that version's object;
+the last version cannot be deleted individually. A worker starts cleanup immediately
+and retries failures after restart with backoff. `DeleteObject` on a versioned bucket can
 create a delete marker; provider versioning, retention and object-lock policies
 determine when historical object bytes are physically removed.
+
+Documents deleted by older builds may still retain originals. Repeating
+`DELETE /api/v1/documents/:id` for such a document queues its retained S3 objects
+and removes its version content using the same retry mechanism.
 
 An SQL failure after upload triggers compensating object deletion. A crash
 between PutObject and SQL commit can leave an orphan object; this integration

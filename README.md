@@ -119,6 +119,14 @@ cd ui && npm test                    # 10 Vitest unit tests
 
 ### PDF watermarks and view-only preview
 
+PDF types are detected from the uploaded bytes, including a PDF header within
+the first 1024 bytes after a BOM or preamble. Existing PDFs saved with a generic
+MIME type are recognized and their portal metadata repaired on authorized detail
+or delivery requests. Detail requests use bounded prefix reads under a shared
+short deadline and remain available when originals are offline.
+Open the document details once to restore its PDF actions
+in the list; originals are preserved and no bucket metadata rewrite is required.
+
 Enable PDF watermarks in Admin → Watermark. Delivery uses a private server-side
 cache of personalized copies; uploaded originals are preserved. Open PDF starts
 preparation in a new tab. Download shows preparation in the clicked button.
