@@ -15,6 +15,7 @@
 			<li><a href="/admin/categories" class:active={currentPath.startsWith('/admin/categories')}>Categories</a></li>
 			<li><a href="/admin/branding" class:active={currentPath.startsWith('/admin/branding')}>Branding</a></li>
 			<li><a href="/admin/watermark" class:active={currentPath.startsWith('/admin/watermark')}>Watermark</a></li>
+			<li><a href="/admin/storage" class:active={currentPath.startsWith('/admin/storage')}>Storage</a></li>
 			<li><a href="/admin/nda" class:active={currentPath.startsWith('/admin/nda')}>NDA Templates</a></li>
 			<li><a href="/activity" class:active={currentPath.startsWith('/activity')}>Activity Log</a></li>
 		</ul>

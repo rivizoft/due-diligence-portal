@@ -129,6 +129,31 @@ Configure dynamic watermarks applied to downloaded documents:
 - **Color** -- Any hex color value.
 - **Live Preview** -- See how the watermark will appear before saving.
 
+## Admin: Storage
+
+Go to **Admin > Storage** to choose where new documents and versions are stored.
+SQLite is the default; existing documents keep their current storage.
+
+1. Create a private S3 bucket and an access key with **GetObject, PutObject and
+   DeleteObject** permissions for the selected bucket/prefix.
+2. Enter **Bucket**, **Region**, **Access Key ID** and **Secret Access Key**.
+   Leave **Endpoint URL** empty for AWS. For another S3-compatible service,
+   enter its HTTPS endpoint and enable **Use path-style addressing** if required.
+   **Key prefix** is an optional folder prefix for new objects.
+3. Click **Test Connection**. It checks upload, read and delete without saving.
+4. Enable **Use S3 for new uploads** and click **Save Settings**. The connection
+   is checked again before an active configuration is saved.
+
+Saved secrets are never displayed. Leave both key fields empty to keep them,
+or enter both to replace them. You can disable new S3 uploads while keeping
+previous S3 files readable. Bucket, endpoint, region and addressing are locked
+while associated S3 versions or cleanup jobs exist; changing the prefix only
+affects new objects. Keep key permissions for existing prefixes too.
+
+Document access and PDF watermarks work through the portal as before. The form
+reports invalid settings and connection/permission failures. Version deletion
+can finish before physical S3 cleanup; failed cleanup is retried automatically.
+
 ## Admin: Audit Log
 
 Every action in the portal is recorded in an immutable audit log:

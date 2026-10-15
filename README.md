@@ -9,6 +9,7 @@ and Svelte 5 frontend.
 ## Features
 
 - **Document management** -- Upload, categorize, version, and search documents with FTS5
+- **Optional S3 storage** -- Connect a private AWS S3 or compatible bucket in Admin > Storage; no S3 environment variables
 - **Granular permissions** -- Per-document and per-category access grants with expiration
 - **Audit logging** -- Immutable log of every access, download, and change
 - **NDA gates** -- Require electronic NDA signatures before document access
@@ -16,7 +17,7 @@ and Svelte 5 frontend.
 - **Activity analytics** -- Per-document and per-investor engagement tracking
 - **White-label branding** -- Custom colors, logos, CSS, and watermarks
 - **Email notifications** -- SMTP-based invites, Q&A alerts, and NDA notifications
-- **Air-gapped deployment** -- No CDN fonts or external API calls at runtime
+- **Air-gapped deployment** -- Self-hosted assets; keep optional S3 and email integrations disabled for disconnected use
 
 ## Quick Start
 
@@ -51,7 +52,17 @@ Browser --> Go Echo (8080/8443) --> SQLite
 ```
 
 Single Docker image. Single process. Single SQLite database file.
-All documents stored as BLOBs in the database (not filesystem).
+Documents use SQLite BLOBs by default. Admin > Storage can enable S3 for new
+documents and versions; metadata and existing SQLite originals stay in the database.
+Private originals are always delivered through the portal's access checks.
+
+To connect S3, create a private bucket and an access key with `s3:GetObject`,
+`s3:PutObject` and `s3:DeleteObject` for the chosen bucket/prefix. Enter the
+bucket, region and keys in Admin > Storage, test the connection, enable S3 and
+save. For an S3-compatible service, set its HTTPS endpoint and optional
+path-style addressing. Keys are encrypted using an automatically generated
+`storage.key` beside the database. Back up that file, the database and bucket
+objects together; see [deployment guidance](docs/DEPLOYMENT.md#s3-storage).
 
 ### Tech Stack
 
@@ -137,7 +148,7 @@ normal shutdown/eviction. Crash leftovers can be cleared while the server is
 stopped. Caches and limits are per process, not distributed. LRU/TTL apply to
 cached files: in-use/uncached files and transient input files can temporarily
 exceed the cache budget. Limits do not constitute a whole-process memory cap;
-SQLite still loads an admitted version BLOB into memory.
+The content service still loads an admitted original into memory, from SQLite or S3.
 
 PNG pages load lazily, at most 1600 pixels on the long edge. Raster subprocesses
 have fixed caps: 512 MiB address space, 60 CPU seconds, 64 MiB output, and are
