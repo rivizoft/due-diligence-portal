@@ -134,6 +134,10 @@ With download access, the tab uses the browser PDF viewer. With view-only access
 it requests server-rendered PNG pages, including the watermark, without exposing
 the PDF file. Screenshots and saving visible images remain possible.
 
+PDFs with C2PA Content Credentials attachments are supported. Watermarking can
+invalidate PDF signatures and C2PA verification on the generated copy; retain
+the unchanged original for provenance verification.
+
 The runtime requires `pdfinfo`, `pdftoppm` (Poppler) and `prlimit` (util-linux);
 the Dockerfile installs them and `font-dejavu` for source PDFs with unembedded fonts. The embedded DejaVu Sans font supports Latin and
 Cyrillic; its redistribution notice is in `internal/service/pdf/assets/`.

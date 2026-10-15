@@ -11,7 +11,7 @@ import (
 	"github.com/rivizoft/due-diligence-portal/internal/domain"
 )
 
-const rendererVersion = "pdfcpu-0.11.1-dejavu-v1"
+const rendererVersion = "pdfcpu-0.11.1-dejavu-c2pa-v2"
 
 type Service struct {
 	cfg       Config

@@ -71,7 +71,7 @@ func (textWatermarker) Apply(ctx context.Context, in, out string, c domain.Water
 		return e
 	}
 	defer f.Close()
-	pdfctx, e := api.ReadValidateAndOptimize(f, conf)
+	pdfctx, e := readWatermarkContext(f, conf)
 	if e != nil {
 		return fmt.Errorf("%w: %v", ErrRender, e)
 	}
