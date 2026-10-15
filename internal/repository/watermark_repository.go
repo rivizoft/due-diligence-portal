@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
 )
 
 // WatermarkRepository defines the interface for watermark config data access.

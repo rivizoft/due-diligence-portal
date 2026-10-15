@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/witfoo/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
 )
 
 func TestS3DoesNotFollowRedirects(t *testing.T) {

@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/middleware"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
-	"github.com/witfoo/due-diligence-portal/internal/service"
-	"github.com/witfoo/due-diligence-portal/pkg/response"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/middleware"
+	"github.com/rivizoft/due-diligence-portal/internal/repository"
+	"github.com/rivizoft/due-diligence-portal/internal/service"
+	"github.com/rivizoft/due-diligence-portal/pkg/response"
 )
 
 func setupAuditHandlerTest(t *testing.T) (*echo.Echo, *AuditHandler, string, *middleware.AuditLogger, string) {

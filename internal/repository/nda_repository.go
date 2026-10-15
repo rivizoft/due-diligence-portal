@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
 )
 
 // NDARepository defines the interface for NDA data access.

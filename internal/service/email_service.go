@@ -8,7 +8,7 @@ import (
 	"net/smtp"
 	"strings"
 
-	"github.com/witfoo/due-diligence-portal/pkg/envconfig"
+	"github.com/rivizoft/due-diligence-portal/pkg/envconfig"
 )
 
 // EmailService sends notification emails via SMTP.

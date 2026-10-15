@@ -1,4 +1,4 @@
-module github.com/witfoo/due-diligence-portal
+module github.com/rivizoft/due-diligence-portal
 
 go 1.26.9
 

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
 )
 
 var (

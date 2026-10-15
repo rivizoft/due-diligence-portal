@@ -61,7 +61,7 @@ The volume contains:
 Published to GitHub Container Registry on every push to `main`:
 
 ```bash
-docker pull ghcr.io/witfoo/due-diligence-portal:latest
+docker pull ghcr.io/rivizoft/due-diligence-portal:latest
 ```
 
 Tags:

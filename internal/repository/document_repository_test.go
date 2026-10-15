@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
 )
 
 // helper: creates a user and a category so documents can reference them via FK.

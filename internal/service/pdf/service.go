@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
 )
 
 const rendererVersion = "pdfcpu-0.11.1-dejavu-v1"

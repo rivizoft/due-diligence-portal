@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
 )
 
 // PermissionRepository defines the interface for access grant data access.

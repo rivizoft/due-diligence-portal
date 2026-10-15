@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
 )
 
 // BrandingRepository defines the interface for branding data access.

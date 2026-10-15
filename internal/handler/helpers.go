@@ -6,9 +6,9 @@ import (
 	"encoding/hex"
 	"time"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
-	"github.com/witfoo/due-diligence-portal/pkg/envconfig"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/repository"
+	"github.com/rivizoft/due-diligence-portal/pkg/envconfig"
 )
 
 // investorAccessMode controls whether investors need explicit access grants.

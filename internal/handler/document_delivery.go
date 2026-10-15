@@ -12,11 +12,11 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/middleware"
-	pdfsvc "github.com/witfoo/due-diligence-portal/internal/service/pdf"
-	"github.com/witfoo/due-diligence-portal/pkg/response"
-	"github.com/witfoo/due-diligence-portal/pkg/sanitize"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/middleware"
+	pdfsvc "github.com/rivizoft/due-diligence-portal/internal/service/pdf"
+	"github.com/rivizoft/due-diligence-portal/pkg/response"
+	"github.com/rivizoft/due-diligence-portal/pkg/sanitize"
 )
 
 var errDeliveryParameter = errors.New("invalid version or page number")

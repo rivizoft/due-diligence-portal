@@ -24,14 +24,14 @@ import (
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/handler"
-	"github.com/witfoo/due-diligence-portal/internal/middleware"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
-	"github.com/witfoo/due-diligence-portal/internal/service"
-	pdfsvc "github.com/witfoo/due-diligence-portal/internal/service/pdf"
-	storesvc "github.com/witfoo/due-diligence-portal/internal/service/storage"
-	"github.com/witfoo/due-diligence-portal/pkg/envconfig"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/handler"
+	"github.com/rivizoft/due-diligence-portal/internal/middleware"
+	"github.com/rivizoft/due-diligence-portal/internal/repository"
+	"github.com/rivizoft/due-diligence-portal/internal/service"
+	pdfsvc "github.com/rivizoft/due-diligence-portal/internal/service/pdf"
+	storesvc "github.com/rivizoft/due-diligence-portal/internal/service/storage"
+	"github.com/rivizoft/due-diligence-portal/pkg/envconfig"
 )
 
 // Build-time variables set via ldflags.

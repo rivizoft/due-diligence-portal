@@ -14,9 +14,9 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
-	"github.com/witfoo/due-diligence-portal/pkg/envconfig"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/repository"
+	"github.com/rivizoft/due-diligence-portal/pkg/envconfig"
 )
 
 const (

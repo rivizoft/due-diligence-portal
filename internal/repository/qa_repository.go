@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
 )
 
 // QARepository defines the interface for Q&A data access.

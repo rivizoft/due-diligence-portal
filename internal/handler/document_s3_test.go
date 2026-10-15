@@ -13,9 +13,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
-	"github.com/witfoo/due-diligence-portal/internal/repository"
-	storesvc "github.com/witfoo/due-diligence-portal/internal/service/storage"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/repository"
+	storesvc "github.com/rivizoft/due-diligence-portal/internal/service/storage"
 )
 
 func TestS3PDFViewOnlyAndWatermarked(t *testing.T) {

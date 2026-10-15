@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/witfoo/due-diligence-portal/internal/domain"
+	"github.com/rivizoft/due-diligence-portal/internal/domain"
 )
 
 func BenchmarkDelivery(b *testing.B) {

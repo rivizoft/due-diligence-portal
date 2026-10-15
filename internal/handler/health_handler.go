@@ -6,7 +6,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/witfoo/due-diligence-portal/internal/repository"
+	"github.com/rivizoft/due-diligence-portal/internal/repository"
 )
 
 // HealthHandler provides health check endpoints.
